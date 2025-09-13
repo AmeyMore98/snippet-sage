@@ -1,0 +1,26 @@
+# Web Framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# ORM
+tortoise-orm==0.21.3
+aerich==0.8.1
+asyncpg==0.29.0
+
+# Database
+psycopg[binary]==3.2.10
+pgvector==0.2.5
+
+# RAG & AI
+langgraph==0.0.55
+dspy-ai==2.4.3
+sentence-transformers==2.7.0
+
+# Utilities
+pydantic
+pydantic-settings
+
+# Testing
+pytest==8.2.0
+ruff==0.5.5
+pre-commit==3.7.1

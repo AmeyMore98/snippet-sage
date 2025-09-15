@@ -14,6 +14,8 @@ extend-select = [
 # Never enforce `E501` (line length violations).
 ignore = ["E501"]
 
-[tool.ruff.format]
-# Like Black, use double quotes for strings.
-quote-style = "double"
+[project]
+requires-python = ">=3.12, <3.13"
+
+[tool.ruff]
+line-length = 120

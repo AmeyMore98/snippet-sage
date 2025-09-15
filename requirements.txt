@@ -8,12 +8,11 @@ aerich==0.8.1
 asyncpg==0.29.0
 
 # Database
-psycopg[binary]==3.2.10
 pgvector==0.2.5
 
 # RAG & AI
 langgraph==0.0.55
-dspy-ai==2.4.3
+dspy-ai==2.6.27
 sentence-transformers==2.7.0
 
 # Utilities

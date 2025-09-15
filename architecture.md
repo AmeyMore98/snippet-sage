@@ -1,4 +1,3 @@
-
 # Personal Knowledge Base (PKB) — MVP Architecture
 
 > **Scope + Stack (as requested)**
@@ -66,18 +65,21 @@ pkb/
 ### What each part does & how they connect
 
 - `FastAPI (app/main.py)` is the HTTP surface. It:
+
   - boots **Tortoise ORM**,
   - registers routers (`/ingest`, `/answer`),
   - initializes OpenTelemetry tracing/metrics,
   - injects **tracer** & **meter** into request state for span/metric emission.
 
 - `core/db.py` bridges FastAPI to **Tortoise ORM** for models, migrations (via Aerich), and transactions. Using Tortoise here gives:
+
   - a modern, async ORM.
   - `aerich` for database migrations.
 
-- `models/*` define the **Minimal RAG corpus** (see §3).
+- `models/*` define the **Minimal RAG corpus**
 
 - `rag/*` is the RAG toolkit:
+
   - `chunker.py` implements sentence/paragraph split with configurable overlap.
   - `embedder.py` computes vector embeddings (e.g., OpenAI, HuggingFace, or local).
   - `retriever.py` mixes **pgvector** ANN search with **Postgres FTS** (hybrid).
@@ -98,6 +100,7 @@ pkb/
 ## 2) Configuration & State
 
 ### Environment (.env)
+
 ```
 # Server
 APP_ENV=dev
@@ -240,6 +243,7 @@ class ChunkTag(UUIDBase):
 ```
 
 ### SQL & Indices (excerpt of `scripts/init_db.sql`)
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -265,7 +269,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_chunks_sha ON chunks(chunk_sha256);
 ## 4) API Contracts
 
 ### `POST /ingest`
+
 **Body**
+
 ```json
 {
   "text": "string (required)",
@@ -276,10 +282,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_chunks_sha ON chunks(chunk_sha256);
 ```
 
 **Validations**
+
 - Reject if `text` is empty or `len(text) < MIN_INPUT_CHARS`.
 - Reject if `content_sha256` already exists (conflict).
 
 **Flow** (each step emits a span):
+
 1. `normalize(text)` → strip, collapse whitespace, normalize quotes.
 2. `hash(text)` → `content_sha256`.
 3. `chunk(text)` → simple sentence/paragraph split with N-sentence overlap.
@@ -288,17 +296,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_chunks_sha ON chunks(chunk_sha256);
 6. Return `{document_id, chunk_count, tags[]}`.
 
 **Responses**
+
 - `201 Created`: `{ document_id, chunk_ids[], chunk_count, tags[] }`
 - `409 Conflict`: duplicate by content hash
 - `422 Unprocessable Entity`: too short / invalid
 
 ### `GET /answer?q=...&k=12&eval=true|false`
+
 **Flow** (LangGraph):
+
 ```
 parse → retrieve(hybrid, k) → rerank → compose answer (DSPy) → cite
 ```
 
 **Contract (always returns citations)**
+
 ```json
 {
   "answer": "string",
@@ -311,6 +323,7 @@ parse → retrieve(hybrid, k) → rerank → compose answer (DSPy) → cite
 ```
 
 **Query params**
+
 - `k` (default from env, capped)
 - `eval` (default `false`): if `true`, compute & log hit-rate metrics (see §7).
 
@@ -319,22 +332,26 @@ parse → retrieve(hybrid, k) → rerank → compose answer (DSPy) → cite
 ## 5) RAG Implementation Details
 
 ### 5.1 Chunking (naive, simple but robust)
+
 - Split on blank-line paragraphs.
 - Further split long paragraphs into N-sentence windows with **1-sentence overlap**.
 - `text_preview` := first 160 chars of chunk, sanitized.
 
 ### 5.2 Embedding
+
 - Default to `all-MiniLM-L6-v2` (dim=384) or plug your own by env.
 - Store vectors in `embeddings.vector` (pgvector).
 - Batch size (e.g., 64) with a trace span for the batch.
 
 ### 5.3 Hybrid Retrieval
+
 - **Vector**: ANN search on `embeddings.vector` by cosine/L2.
 - **Lexical**: FTS query on `chunks.fts` with `plainto_tsquery`.
 - **Fusion**: normalize scores (min-max), `score = α * vector + (1-α) * lexical` (α ~ 0.6 for short queries).
 - Optional tag filtering: `WHERE tag IN (...)` via join on `ChunkTag`.
 
 **Example SQL (vector leg)**
+
 ```sql
 SELECT c.id, c.text_preview, 1 - (e.vector <=> :qvec) AS vscore
 FROM embeddings e
@@ -344,6 +361,7 @@ LIMIT :kvec;
 ```
 
 **Example SQL (lexical leg)**
+
 ```sql
 SELECT id, text_preview, ts_rank(fts, plainto_tsquery('english', :q)) AS lscore
 FROM chunks
@@ -353,17 +371,21 @@ LIMIT :klex;
 ```
 
 **Fusion (Python)**
+
 ```python
 fused = fuse(vector_hits, lexical_hits, alpha=0.6)[:k]
 ```
 
 ### 5.4 Reranking
+
 - Lightweight cross-encoder (e.g., `cross-encoder/ms-marco-MiniLM-L-6-v2`) **or** small LLM scoring.
 - Input: `(query, chunk_text)`
 - Output: `score ∈ [0, 1]`; keep top-k' (e.g., 6).
 
 ### 5.5 Answer Composition (DSPy + LangGraph)
+
 - **LangGraph nodes**:
+
   - **parse**: normalize/expand the question.
   - **retrieve**: hybrid retrieval (k).
   - **rerank**: re-score top-k; select k'.
@@ -371,12 +393,13 @@ fused = fuse(vector_hits, lexical_hits, alpha=0.6)[:k]
   - **cite**: attach `{chunk_id, preview, score}` for all chunks referenced.
 
 - **DSPy Signature (strict)**
+
 ```python
 # app/rag/dspy_program.py
 import dspy
 
 class AnswerSignature(dspy.Signature):
-    """Answer a question concisely using only the provided context.""" 
+    """Answer a question concisely using only the provided context."""
     question = dspy.InputField(desc="natural language query")
     context = dspy.InputField(desc="relevant passages with ids")
     answer = dspy.OutputField()
@@ -387,6 +410,7 @@ Answerer = dspy.Program(AnswerSignature)
 ```
 
 - The **answer** node prepares a `context` string like:
+
   ```
   [chunk_id=... score=0.82]
   ...chunk text...
@@ -394,7 +418,9 @@ Answerer = dspy.Program(AnswerSignature)
   [chunk_id=... score=0.77]
   ...chunk text...
   ```
+
   and calls the DSPy program. The node enforces schema and post-validates:
+
   - `citations` must be a subset of retrieved chunk IDs.
   - If missing, fall back to top reranked chunks.
 
@@ -428,6 +454,7 @@ async def answer(q: str, k: int = settings.RETRIEVAL_K, eval: bool = False):
 ## 7) Observability (OTEL)
 
 ### Tracing
+
 - **/ingest** spans:
   - `normalize`, `hash`, `chunking`, `embedding(batch=N)`,
   - `db.write.document`, `db.write.chunks`, `db.write.embeddings`, `db.write.tags`.
@@ -437,9 +464,11 @@ async def answer(q: str, k: int = settings.RETRIEVAL_K, eval: bool = False):
   - `db.read.vector`, `db.read.lexical`.
 
 Use OTEL auto-instrumentation where possible:
+
 - FastAPI/ASGI, `asyncpg` (DB), `requests`/`httpx` (LLM calls).
 
 ### Metrics (via OTEL Meter)
+
 - **Counters**: `ingest.requests`, `answer.requests`.
 - **Histograms**: `ingest.latency_ms`, `answer.latency_ms`.
 - **LLM tokens**: `llm.tokens.prompt`, `llm.tokens.completion`.
@@ -454,16 +483,19 @@ All metrics are labeled with `{env, model, route}`.
 ## 8) Local Development
 
 ### Bootstrap DB
+
 1. `docker compose up -d` (optional) — brings Postgres with `pgvector`.
 2. `aerich init-db` — creates migration history in DB.
 3. `aerich migrate` — runs migrations.
 
 ### Run app
+
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Smoke tests
+
 ```bash
 curl -X POST 'http://localhost:8000/ingest'   -H 'content-type: application/json'   -d '{"text":"Alice met Bob.\n\nThey built a PKB MVP.","tags":["demo","notes"],"source":"cli"}'
 
@@ -473,39 +505,6 @@ curl 'http://localhost:8000/answer?q=Who met whom?&k=8'
 ---
 
 ## 9) Key Implementation Snippets
-
-### 9.1 Tortoise ORM bootstrap
-
-```python
-# app/core/db.py
-from fastapi import FastAPI
-from tortoise.contrib.fastapi import register_tortoise
-from app.core.config import settings
-
-def init_tortoise(app: FastAPI):
-    register_tortoise(
-        app,
-        db_url=settings.DATABASE_URL,
-        modules={"models": ["app.models"]},
-        generate_schemas=True,
-        add_exception_handlers=True,
-    )
-```
-
-```python
-# aerich.ini
-[tortoise]
-# tortoise_orm config, same as in register_tortoise
-tortoise_orm = {
-    "connections": {"default": "postgres://pkb:pkb@localhost:5432/pkb"},
-    "apps": {
-        "models": {
-            "models": ["app.models", "aerich.models"],
-            "default_connection": "default",
-        },
-    },
-}
-```
 
 ### 9.2 Naive chunker
 
@@ -572,6 +571,7 @@ def run_answerer(question: str, passages: list[tuple[str, str, float]]):
 ## 10) Error Handling & Edge Cases
 
 - Ingestion:
+
   - 409 on duplicate `content_sha256`.
   - 422 if too short or non-text payload.
   - Partial failure on embeddings: store what’s computed, return count; log errors.

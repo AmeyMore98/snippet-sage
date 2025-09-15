@@ -49,7 +49,7 @@ Add `__init__.py` inside Python dirs.
 
 ## Phase 2 — Data Model
 
-### T2.1 — Base models
+### T2.1 — Base models - Done
 
 **Start:** Empty models.
 **End:** `models/base.py` with `TimestampedModel` + `UUIDBase`.

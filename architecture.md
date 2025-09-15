@@ -9,7 +9,7 @@
 > - **Observability**: OpenTelemetry traces & metrics.
 > - **Local dev only**: `.env`, Docker optional.
 >
-> - **Stack**: **Python + FastAPI + Django ORM + Postgres (pgvector) + RAG + LangGraph + DSPy + OTEL**.
+> - **Stack**: **Python + FastAPI + Tortoise ORM + Postgres (pgvector) + RAG + LangGraph + DSPy + OTEL**.
 
 ---
 
@@ -25,11 +25,11 @@ pkb/
 │  ├─ core/
 │  │  ├─ config.py                 # Env, settings, constants
 │  │  ├─ otel.py                   # OTEL tracer, meter, instrumentations
-│  │  ├─ db.py                     # Django ORM bootstrap (w/o Django server)
+│  │  ├─ db.py                     # Tortoise ORM bootstrap
 │  │  ├─ hashing.py                # Content hashing & dedup helpers
 │  │  ├─ text.py                   # Normalization, simple sentence/para split
 │  ├─ models/
-│  │  ├─ __init__.py
+│  │  ├─ __init__.py               # Tortoise ORM model definitions
 │  │  ├─ base.py                   # Abstract TimestampedModel, UUIDBase
 │  │  ├─ documents.py              # Document model
 │  │  ├─ chunks.py                 # Chunk model (+ FK to Document)
@@ -52,11 +52,11 @@ pkb/
 │  │  ├─ qa_service.py             # Orchestrates question answering graph execution
 │  │  ├─ metrics.py                # Custom metrics emission (requests, tokens, hit-rate)
 │  │  └─ eval.py                   # Optional eval helpers (hit-rate if ?eval=true)
-│  ├─ tests/                       # Lightweight pytest
-│  └─ django_settings.py           # Minimal Django settings for ORM-only usage
+│  └─ tests/                       # Lightweight pytest
 ├─ scripts/
-│  ├─ init_db.sql                  # CREATE EXTENSION, FTS, indices
-│  └─ migrate.py                   # Simple one-off migration runner
+│  └─ init_db.sql                  # CREATE EXTENSION, FTS, indices
+├─ aerich.ini                      # Aerich migration tool config
+├─ migrations/                     # Aerich-generated migrations
 ├─ .env.example
 ├─ docker-compose.yml              # Optional: Postgres + pgvector
 ├─ Dockerfile                      # Optional: app container
@@ -66,14 +66,14 @@ pkb/
 ### What each part does & how they connect
 
 - `FastAPI (app/main.py)` is the HTTP surface. It:
-  - boots Django ORM (without running Django’s server),
+  - boots **Tortoise ORM**,
   - registers routers (`/ingest`, `/answer`),
   - initializes OpenTelemetry tracing/metrics,
   - injects **tracer** & **meter** into request state for span/metric emission.
 
-- `core/db.py` bridges FastAPI to **Django ORM** for models, migrations (simple script), and transactions. Using Django here gives:
-  - mature ORM, migrations, relationships, validation hooks.
-  - We avoid using Django Views; only ORM layer is used inside FastAPI handlers.
+- `core/db.py` bridges FastAPI to **Tortoise ORM** for models, migrations (via Aerich), and transactions. Using Tortoise here gives:
+  - a modern, async ORM.
+  - `aerich` for database migrations.
 
 - `models/*` define the **Minimal RAG corpus** (see §3).
 
@@ -110,6 +110,8 @@ POSTGRES_PORT=5432
 POSTGRES_DB=pkb
 POSTGRES_USER=pkb
 POSTGRES_PASSWORD=pkb
+# Full DB URL for Tortoise
+DATABASE_URL=postgres://pkb:pkb@localhost:5432/pkb
 
 # Embeddings
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
@@ -138,86 +140,102 @@ MAX_INPUT_CHARS=200_000
 
 ---
 
-## 3) Data Model (Django ORM ↔ Postgres)
+## 3) Data Model (Tortoise ORM ↔ Postgres)
 
 > Minimal corpus: `documents`, `chunks`, `embeddings` (pgvector), `tags` (+ M2M join)
 
 ```python
 # app/models/base.py
-import uuid
-from django.db import models
+from tortoise import fields, models
 
 class TimestampedModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+
     class Meta:
         abstract = True
 
 class UUIDBase(TimestampedModel):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = fields.UUIDField(pk=True)
+
     class Meta:
         abstract = True
 ```
 
 ```python
 # app/models/documents.py
-from django.db import models
+from tortoise import fields
 from .base import UUIDBase
 
 class Document(UUIDBase):
-    source = models.CharField(max_length=255, null=True, blank=True)   # e.g. "web", "cli", "note"
-    user_created_at = models.DateTimeField(null=True, blank=True)      # from request body
-    content_sha256 = models.CharField(max_length=64, unique=True)      # dedup
-    raw_text = models.TextField()                                      # normalized
+    source = fields.CharField(max_length=255, null=True)   # e.g. "web", "cli", "note"
+    user_created_at = fields.DatetimeField(null=True)      # from request body
+    content_sha256 = fields.CharField(max_length=64, unique=True)      # dedup
+    raw_text = fields.TextField()                                      # normalized
+
+    class Meta:
+        table = "documents"
 ```
 
 ```python
 # app/models/chunks.py
-from django.db import models
-from .base import UUIDBase, Document
+from tortoise import fields
+from .base import UUIDBase
 
 class Chunk(UUIDBase):
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="chunks")
-    ordinal = models.IntegerField()                                    # position within document
-    text = models.TextField()
-    text_preview = models.CharField(max_length=256)                    # UI/debug
-    chunk_sha256 = models.CharField(max_length=64, unique=True)
+    document = fields.ForeignKeyField("models.Document", related_name="chunks", on_delete=fields.CASCADE)
+    ordinal = fields.IntField()                                    # position within document
+    text = fields.TextField()
+    text_preview = fields.CharField(max_length=256)                    # UI/debug
+    chunk_sha256 = fields.CharField(max_length=64, unique=True)
+
+    class Meta:
+        table = "chunks"
 ```
 
 ```python
 # app/models/embeddings.py
-from django.db import models
+# Note: for pgvector, a custom field is needed. See tortoise-orm-pgvector.
+# For simplicity, we'll represent it as a placeholder.
+from tortoise import fields
 from .base import UUIDBase
-from .chunks import Chunk
+
+# from tortoise_orm_pgvector.fields import VectorField
 
 class Embedding(UUIDBase):
-    chunk = models.OneToOneField(Chunk, on_delete=models.CASCADE, related_name="embedding")
-    vector = models.BinaryField()   # stored via pgvector adapter; Django stores as bytes
-    dim = models.IntegerField()
-    model = models.CharField(max_length=255)
+    chunk = fields.OneToOneField("models.Chunk", on_delete=fields.CASCADE, related_name="embedding")
+    # vector = VectorField(dimensions=384) # Example with tortoise-orm-pgvector
+    vector = fields.BinaryField()   # Stored as bytes without a dedicated vector type
+    dim = fields.IntField()
+    model = fields.CharField(max_length=255)
+
+    class Meta:
+        table = "embeddings"
 ```
 
 ```python
 # app/models/tags.py
-from django.db import models
+from tortoise import fields
 from .base import UUIDBase
 
 class Tag(UUIDBase):
-    name = models.CharField(max_length=64, unique=True)
+    name = fields.CharField(max_length=64, unique=True)
+
+    class Meta:
+        table = "tags"
 ```
 
 ```python
 # app/models/relations.py
-from django.db import models
+from tortoise import fields
 from .base import UUIDBase
-from .chunks import Chunk
-from .tags import Tag
 
 class ChunkTag(UUIDBase):
-    chunk = models.ForeignKey(Chunk, on_delete=models.CASCADE)
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
+    chunk = fields.ForeignKeyField("models.Chunk", on_delete=fields.CASCADE)
+    tag = fields.ForeignKeyField("models.Tag", on_delete=fields.CASCADE)
 
     class Meta:
+        table = "chunk_tags"
         unique_together = ("chunk", "tag")
 ```
 
@@ -229,7 +247,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ALTER TABLE chunks ADD COLUMN IF NOT EXISTS fts tsvector
   GENERATED ALWAYS AS (to_tsvector('english', text)) STORED;
 
--- Vector column (if you prefer raw SQL over Django migration for clarity)
+-- Vector column (if you prefer raw SQL over Aerich migration for clarity)
 ALTER TABLE embeddings
   ADD COLUMN IF NOT EXISTS vector vector(384);
 
@@ -358,7 +376,7 @@ fused = fuse(vector_hits, lexical_hits, alpha=0.6)[:k]
 import dspy
 
 class AnswerSignature(dspy.Signature):
-    \"""Answer a question concisely using only the provided context.\""" 
+    """Answer a question concisely using only the provided context.""" 
     question = dspy.InputField(desc="natural language query")
     context = dspy.InputField(desc="relevant passages with ids")
     answer = dspy.OutputField()
@@ -387,9 +405,9 @@ Answerer = dspy.Program(AnswerSignature)
 ```python
 # app/api/ingest.py
 @router.post("/ingest", status_code=201)
-def ingest(payload: IngestRequest) -> IngestResponse:
+async def ingest(payload: IngestRequest) -> IngestResponse:
     with tracer.start_as_current_span("ingest") as span:
-        doc_id, chunk_ids = ingestion_service.ingest(payload)
+        doc_id, chunk_ids = await ingestion_service.ingest(payload)
         meter.counter("ingest.requests").add(1)
         return {"document_id": str(doc_id), "chunk_ids": [str(i) for i in chunk_ids], "chunk_count": len(chunk_ids), "tags": payload.tags or []}
 ```
@@ -397,9 +415,9 @@ def ingest(payload: IngestRequest) -> IngestResponse:
 ```python
 # app/api/answer.py
 @router.get("/answer")
-def answer(q: str, k: int = settings.RETRIEVAL_K, eval: bool = False):
+async def answer(q: str, k: int = settings.RETRIEVAL_K, eval: bool = False):
     with tracer.start_as_current_span("answer") as span:
-        result = qa_service.answer(q=q, k=k, eval_mode=eval)
+        result = await qa_service.answer(q=q, k=k, eval_mode=eval)
         meter.counter("answer.requests").add(1)
         meter.histogram("answer.latency_ms").record(span.end_time - span.start_time)  # pseudo
         return result
@@ -419,7 +437,7 @@ def answer(q: str, k: int = settings.RETRIEVAL_K, eval: bool = False):
   - `db.read.vector`, `db.read.lexical`.
 
 Use OTEL auto-instrumentation where possible:
-- FastAPI/ASGI, `psycopg` (DB), `requests`/`httpx` (LLM calls).
+- FastAPI/ASGI, `asyncpg` (DB), `requests`/`httpx` (LLM calls).
 
 ### Metrics (via OTEL Meter)
 - **Counters**: `ingest.requests`, `answer.requests`.
@@ -437,7 +455,8 @@ All metrics are labeled with `{env, model, route}`.
 
 ### Bootstrap DB
 1. `docker compose up -d` (optional) — brings Postgres with `pgvector`.
-2. `python scripts/migrate.py` — runs `init_db.sql` + Django migrations.
+2. `aerich init-db` — creates migration history in DB.
+3. `aerich migrate` — runs migrations.
 
 ### Run app
 ```bash
@@ -455,34 +474,37 @@ curl 'http://localhost:8000/answer?q=Who met whom?&k=8'
 
 ## 9) Key Implementation Snippets
 
-### 9.1 Django ORM bootstrap (no Django server)
+### 9.1 Tortoise ORM bootstrap
 
 ```python
 # app/core/db.py
-import os, django
-from django.conf import settings as dj
-def init_django():
-    if not dj.configured:
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.django_settings")
-        django.setup()
+from fastapi import FastAPI
+from tortoise.contrib.fastapi import register_tortoise
+from app.core.config import settings
+
+def init_tortoise(app: FastAPI):
+    register_tortoise(
+        app,
+        db_url=settings.DATABASE_URL,
+        modules={"models": ["app.models"]},
+        generate_schemas=True,
+        add_exception_handlers=True,
+    )
 ```
 
 ```python
-# app/django_settings.py
-import os
-SECRET_KEY = "dev"
-INSTALLED_APPS = ["app.models"]
-DATABASES = {
-  "default": {
-    "ENGINE": "django.db.backends.postgresql",
-    "NAME": os.getenv("POSTGRES_DB"),
-    "USER": os.getenv("POSTGRES_USER"),
-    "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-    "HOST": os.getenv("POSTGRES_HOST"),
-    "PORT": os.getenv("POSTGRES_PORT"),
-  }
+# aerich.ini
+[tortoise]
+# tortoise_orm config, same as in register_tortoise
+tortoise_orm = {
+    "connections": {"default": "postgres://pkb:pkb@localhost:5432/pkb"},
+    "apps": {
+        "models": {
+            "models": ["app.models", "aerich.models"],
+            "default_connection": "default",
+        },
+    },
 }
-DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 ```
 
 ### 9.2 Naive chunker
@@ -505,9 +527,9 @@ def split(text: str, max_sent=6, overlap=1):
 
 ```python
 # app/rag/retriever.py
-def hybrid(query: str, k: int) -> list[Hit]:
-    vhits = vector_search(query_vec, kvec)
-    lhits = lexical_search(query, klex)
+async def hybrid(query: str, k: int) -> list[Hit]:
+    vhits = await vector_search(query_vec, kvec)
+    lhits = await lexical_search(query, klex)
     return fuse(vhits, lhits, alpha=0.6)[:k]
 ```
 
@@ -564,7 +586,7 @@ def run_answerer(question: str, passages: list[tuple[str, str, float]]):
 
 - Limit payload sizes (e.g., 200k chars).
 - Strip control characters; reject binary.
-- Parameterized SQL only (psycopg).
+- Parameterized SQL only (asyncpg).
 - No auth (local dev), but structure allows API-key header later.
 
 ---

@@ -17,7 +17,7 @@
 
 **Start:** Empty repo.
 **End:** `requirements.txt` with pinned versions.
-**Steps:** Add: fastapi, uvicorn[standard], pydantic; django; psycopg[binary] or psycopg2-binary; opentelemetry-\* (api, sdk, exporter-otlp, instrumentation-fastapi, instrumentation-psycopg); sentence-transformers, torch (cpu), numpy; langgraph; dspy; httpx; python-dotenv; pytest, pytest-asyncio.
+**Steps:** Add: fastapi, uvicorn[standard], pydantic; tortoise-orm, aerich, asyncpg; opentelemetry-\* (api, sdk, exporter-otlp, instrumentation-fastapi); sentence-transformers, torch (cpu), numpy; langgraph; dspy; httpx; python-dotenv; pytest, pytest-asyncio.
 **Test:** `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` completes successfully.
 
 ### T0.3 — Base directories - Done
@@ -38,26 +38,12 @@ Add `__init__.py` inside Python dirs.
 
 ## Phase 1 — Configuration
 
-### T1.1 — .env and config module
+### T1.1 — .env and config module - Done
 
 **Start:** No config.
 **End:** `.env.example` and `app/core/config.py`.
-**Steps:** Implement `Settings` via `pydantic.BaseSettings` with defaults in the architecture (ports, DB, OTEL, embedding model, K, limits).
+**Steps:** Implement `Settings` via `pydantic.BaseSettings` with defaults in the architecture (ports, DB, OTEL, embedding model, K, limits). Add `DATABASE_URL`.
 **Test:** `python -c "from app.core.config import Settings; print(Settings().APP_PORT)"` prints default.
-
-### T1.2 — Minimal Django settings (ORM-only)
-
-**Start:** No Django config.
-**End:** `app/django_settings.py` created.
-**Steps:** Configure `DATABASES` from env, `INSTALLED_APPS=['app.models']`, `DEFAULT_AUTO_FIELD`.
-**Test:** `DJANGO_SETTINGS_MODULE=app.django_settings python -c "import django; django.setup(); print('ok')"` prints `ok`.
-
-### T1.3 — Django bootstrap helper
-
-**Start:** No bootstrap.
-**End:** `app/core/db.py:init_django()`.
-**Steps:** Implement guard and `django.setup()`; call from app startup.
-**Test:** `python -c "from app.core.db import init_django; init_django(); print('db ok')"` prints `db ok`.
 
 ---
 
@@ -67,21 +53,19 @@ Add `__init__.py` inside Python dirs.
 
 **Start:** Empty models.
 **End:** `models/base.py` with `TimestampedModel` + `UUIDBase`.
-**Test:** Import succeeds; `django.apps.get_models()` includes base-derived models after later additions.
+**Test:** Import succeeds; `issubclass(UUIDBase, TimestampedModel)` is true.
 
 ### T2.2 — Document model
 
 **Start:** Base ready.
 **End:** `models/documents.py` with fields per architecture: `source`, `user_created_at`, `content_sha256 (unique)`, `raw_text`.
-**Test:** `python - <<'PY'
-import os; os.environ['DJANGO_SETTINGS_MODULE']='app.django_settings'; import django; django.setup(); from app.models.documents import Document; print('Document OK')
-PY` prints OK.
+**Test:** `python -c "from app.models.documents import Document; print('Document OK')"` prints OK.
 
 ### T2.3 — Chunk model
 
 **Start:** Document ready.
 **End:** `models/chunks.py` with FK to Document, `ordinal`, `text`, `text_preview`, `chunk_sha256 (unique)`.
-**Test:** Import succeeds; `Chunk._meta.get_field('document')` exists.
+**Test:** Import succeeds; `hasattr(Chunk, 'document')`.
 
 ### T2.4 — Embedding model
 
@@ -93,7 +77,7 @@ PY` prints OK.
 
 **Start:** Above models ready.
 **End:** `models/tags.py` + `models/relations.py` with unique_together `(chunk, tag)`.
-**Test:** Import succeeds; constraint appears in migration.
+**Test:** Import succeeds; `ChunkTag._meta.unique_together` is set.
 
 ---
 
@@ -112,12 +96,12 @@ PY` prints OK.
 **End:** `scripts/init_db.sql` created with statements from architecture.
 **Test:** `psql -f scripts/init_db.sql` runs idempotently twice with zero errors.
 
-### T3.3 — Django migrations
+### T3.3 — Tortoise ORM (Aerich) migrations
 
 **Start:** Models defined.
 **End:** Migrations applied.
-**Steps:** `python -m django makemigrations app && python -m django migrate` (or programmatic runner).
-**Test:** `\dt` shows `documents, chunks, embeddings, tags, relations` tables.
+**Steps:** `aerich init-db` to create migration table, then `aerich migrate` to generate and apply.
+**Test:** `\dt` in psql shows `documents, chunks, embeddings, tags, chunk_tags` tables.
 
 ### T3.4 — Validate generated FTS column
 
@@ -340,7 +324,7 @@ _(Optional later: swap stub with small cross-encoder.)_
 ### T12.1 — App factory
 
 **Start:** None.
-**End:** `app/main.py` creates FastAPI app, mounts routers, inits OTEL, calls `init_django()`.
+**End:** `app/main.py` creates FastAPI app, mounts routers, inits OTEL, calls `init_tortoise()`.
 **Test:** `uvicorn app.main:app --reload` serves `/docs` (OpenAPI loads).
 
 ### T12.2 — Ingest schema
@@ -380,7 +364,7 @@ _(Optional later: swap stub with small cross-encoder.)_
 ### T13.2 — Auto-instrumentation
 
 **Start:** Tracer exists.
-**End:** Instrument FastAPI/ASGI, psycopg, httpx.
+**End:** Instrument FastAPI/ASGI, asyncpg, httpx.
 **Test:** DB and HTTP spans appear in console exporter.
 
 ### T13.3 — Ingestion spans

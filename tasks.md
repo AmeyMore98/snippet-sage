@@ -55,13 +55,13 @@ Add `__init__.py` inside Python dirs.
 **End:** `models/base.py` with `TimestampedModel` + `UUIDBase`.
 **Test:** Import succeeds; `issubclass(UUIDBase, TimestampedModel)` is true.
 
-### T2.2 — Document model
+### T2.2 — Document model - Done
 
 **Start:** Base ready.
 **End:** `models/documents.py` with fields per architecture: `source`, `user_created_at`, `content_sha256 (unique)`, `raw_text`.
 **Test:** `python -c "from app.models.documents import Document; print('Document OK')"` prints OK.
 
-### T2.3 — Chunk model
+### T2.3 — Chunk model - Done
 
 **Start:** Document ready.
 **End:** `models/chunks.py` with FK to Document, `ordinal`, `text`, `text_preview`, `chunk_sha256 (unique)`.

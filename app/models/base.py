@@ -1,3 +1,5 @@
+import uuid
+
 from tortoise import fields, models
 
 
@@ -10,8 +12,8 @@ class TimestampedModel(models.Model):
         table_description = "Timestamped base model"
 
 
-class UUIDBase(models.Model):
-    id = fields.UUIDField(pk=True)
+class UUIDModel(models.Model):
+    id = fields.UUIDField(primary_key=True, default=uuid.uuid4)
 
     class Meta:
         abstract = True

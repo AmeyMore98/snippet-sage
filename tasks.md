@@ -67,13 +67,13 @@ Add `__init__.py` inside Python dirs.
 **End:** `models/chunks.py` with FK to Document, `ordinal`, `text`, `text_preview`, `chunk_sha256 (unique)`.
 **Test:** Import succeeds; `hasattr(Chunk, 'document')`.
 
-### T2.4 — Embedding model
+### T2.4 — Embedding model - Done
 
 **Start:** Chunk ready.
 **End:** `models/embeddings.py` with OneToOneField to Chunk, `vector`, `dim`, `model`.
 **Test:** Import succeeds.
 
-### T2.5 — Tag + ChunkTag
+### T2.5 — Tag + ChunkTag - Skipped
 
 **Start:** Above models ready.
 **End:** `models/tags.py` + `models/relations.py` with unique_together `(chunk, tag)`.

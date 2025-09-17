@@ -90,32 +90,32 @@ Add `__init__.py` inside Python dirs.
 **Steps:** Use provided `docker-compose.yml` (pgvector image).
 **Test:** `psql -h localhost -U pkb -d pkb -c "select 1"` returns 1.
 
-### T3.2 — Init SQL (pgvector + FTS + indices)
+### T3.2 — Init SQL (pgvector + FTS + indices) - Done
 
 **Start:** DB up.
 **End:** `scripts/init_db.sql` created with statements from architecture.
 **Test:** `psql -f scripts/init_db.sql` runs idempotently twice with zero errors.
 
-### T3.3 — Tortoise ORM (Aerich) migrations
+### T3.3 — Tortoise ORM (Aerich) migrations - Done
 
 **Start:** Models defined.
 **End:** Migrations applied.
 **Steps:** `aerich init-db` to create migration table, then `aerich migrate` to generate and apply.
 **Test:** `\dt` in psql shows `documents, chunks, embeddings, tags, chunk_tags` tables.
 
-### T3.4 — Validate generated FTS column
+### T3.4 — Validate generated FTS column - Done
 
 **Start:** `chunks` table exists.
 **End:** `fts tsvector` generated column present.
 **Test:** `\d+ chunks` shows `fts` column; `select to_tsvector('english','hello')` sanity-checks FTS.
 
-### T3.5 — Vector column + IVFFlat index
+### T3.5 — Vector column + IVFFlat index - Done
 
 **Start:** `embeddings` table exists.
 **End:** `vector` pgvector column with dim and IVFFlat index.
 **Test:** `\d+ embeddings` shows `vector`; `\di` shows `idx_embeddings_vector` with `ivfflat` method.
 
-### T3.6 — Dedup unique indices
+### T3.6 — Dedup unique indices - Done
 
 **Start:** Tables present.
 **End:** Unique on `content_sha256` and `chunk_sha256`.
@@ -125,19 +125,19 @@ Add `__init__.py` inside Python dirs.
 
 ## Phase 4 — Core Utilities
 
-### T4.1 — Text normalization
+### T4.1 — Text normalization - Done
 
 **Start:** None.
 **End:** `core/text.py:normalize(text)->str`.
 **Test:** Unit: collapses multi-space/newlines, normalizes unicode quotes.
 
-### T4.2 — Preview builder
+### T4.2 — Preview builder - Skipped
 
 **Start:** None.
 **End:** `core/text.py:preview(text, n=160)->str`.
 **Test:** Exactly ≤160 chars; no newlines; adds ellipsis when trimmed.
 
-### T4.3 — Content hashing
+### T4.3 — Content hashing - Done
 
 **Start:** None.
 **End:** `core/hashing.py:sha256(text)->hex`.

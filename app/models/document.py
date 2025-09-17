@@ -3,7 +3,7 @@ from tortoise import fields
 from .base import UUIDModel
 
 
-class DocumentModel(UUIDModel):
+class Document(UUIDModel):
     source = fields.CharField(max_length=255, null=True)
     user_created_at = fields.DatetimeField(null=True)
     content_sha256 = fields.CharField(max_length=64, unique=True)
@@ -11,4 +11,4 @@ class DocumentModel(UUIDModel):
 
     class Meta:
         table = "documents"
-        table_description = "Document model"
+        table_description = "Documents Table"

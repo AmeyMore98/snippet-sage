@@ -83,7 +83,7 @@ Add `__init__.py` inside Python dirs.
 
 ## Phase 3 — Database, Extensions & Indices
 
-### T3.1 — Postgres up (Docker optional)
+### T3.1 — Postgres up (Docker optional) - Skipped
 
 **Start:** No DB.
 **End:** Local Postgres running.

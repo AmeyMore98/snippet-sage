@@ -2,20 +2,13 @@
 
 import asyncio
 import logging
-from typing import NamedTuple
 
 import numpy as np
 from tortoise.connection import connections
 
+from .schemas import Hit
+
 logger = logging.getLogger(__name__)
-
-
-class Hit(NamedTuple):
-    """Represents a search hit with chunk ID and score."""
-
-    chunk_id: str
-    score: float
-    text_preview: str | None = None
 
 
 async def vector_search(query_vector: np.ndarray, k: int) -> list[Hit]:
@@ -40,7 +33,6 @@ async def vector_search(query_vector: np.ndarray, k: int) -> list[Hit]:
         SELECT
             c.id as chunk_id,
             1 - (e.vector <=> $1) as vscore,
-            LEFT(c.text, 160) as text_preview
         FROM embeddings e
         JOIN chunks c ON c.id = e.chunk_id
         ORDER BY e.vector <=> $1
@@ -51,10 +43,8 @@ async def vector_search(query_vector: np.ndarray, k: int) -> list[Hit]:
 
     hits = []
     for row in results[1]:  # results[1] contains the data rows
-        chunk_id, vscore, text_preview = row
-        hits.append(
-            Hit(chunk_id=str(chunk_id), score=float(vscore) if vscore is not None else 0.0, text_preview=text_preview)
-        )
+        chunk_id, vscore = row
+        hits.append(Hit(chunk_id=str(chunk_id), retrieval_score=float(vscore) if vscore is not None else 0.0))
 
     logger.debug(f"Vector search returned {len(hits)} hits")
     return hits
@@ -79,7 +69,6 @@ async def lexical_search(query: str, k: int) -> list[Hit]:
         SELECT
             id as chunk_id,
             ts_rank(fts, plainto_tsquery('english', $1)) as lscore,
-            LEFT(text, 160) as text_preview
         FROM chunks
         WHERE fts @@ plainto_tsquery('english', $1)
         ORDER BY lscore DESC
@@ -90,10 +79,8 @@ async def lexical_search(query: str, k: int) -> list[Hit]:
 
     hits = []
     for row in results[1]:  # results[1] contains the data rows
-        chunk_id, lscore, text_preview = row
-        hits.append(
-            Hit(chunk_id=str(chunk_id), score=float(lscore) if lscore is not None else 0.0, text_preview=text_preview)
-        )
+        chunk_id, lscore = row
+        hits.append(Hit(chunk_id=str(chunk_id), retrieval_score=float(lscore) if lscore is not None else 0.0))
 
     logger.debug(f"Lexical search returned {len(hits)} hits")
     return hits
@@ -112,19 +99,19 @@ def normalize_scores(hits: list[Hit]) -> list[Hit]:
     if not hits:
         return hits
 
-    scores = [hit.score for hit in hits]
+    scores = [hit.retrieval_score for hit in hits]
     min_score = min(scores)
     max_score = max(scores)
 
     # Handle edge case where all scores are the same
     if max_score == min_score:
-        return [Hit(hit.chunk_id, 1.0, hit.text_preview) for hit in hits]
+        return [Hit(hit.chunk_id, 1.0) for hit in hits]
 
     # Min-max normalization
     normalized_hits = []
     for hit in hits:
-        normalized_score = (hit.score - min_score) / (max_score - min_score)
-        normalized_hits.append(Hit(hit.chunk_id, normalized_score, hit.text_preview))
+        normalized_score = (hit.retrieval_score - min_score) / (max_score - min_score)
+        normalized_hits.append(Hit(hit.chunk_id, normalized_score))
 
     return normalized_hits
 
@@ -155,19 +142,16 @@ def fuse(vector_hits: list[Hit], lexical_hits: list[Hit], alpha: float = 0.6, k:
         lexical_hit = lexical_map.get(chunk_id)
 
         # Get scores, defaulting to 0 if not present in one of the searches
-        vector_score = vector_hit.score if vector_hit else 0.0
-        lexical_score = lexical_hit.score if lexical_hit else 0.0
+        vector_score = vector_hit.retrieval_score if vector_hit else 0.0
+        lexical_score = lexical_hit.retrieval_score if lexical_hit else 0.0
 
         # Weighted combination
         combined_score = alpha * vector_score + (1 - alpha) * lexical_score
 
-        # Use text preview from whichever hit is available (prefer vector)
-        text_preview = vector_hit.text_preview if vector_hit else lexical_hit.text_preview if lexical_hit else None
-
-        fused_hits.append(Hit(chunk_id, combined_score, text_preview))
+        fused_hits.append(Hit(chunk_id, retrieval_score=combined_score))
 
     # Sort by combined score (descending) and limit to k
-    fused_hits.sort(key=lambda x: x.score, reverse=True)
+    fused_hits.sort(key=lambda x: x.retrieval_score, reverse=True)
     return fused_hits[:k]
 
 

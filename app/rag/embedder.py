@@ -22,6 +22,10 @@ def load_model() -> SentenceTransformer:
     """
     Load the embedding model based on environment configuration.
 
+    This function uses a global cache to store the model. For production use,
+    it's recommended to call this function once at application startup
+    to pre-load the model and avoid a delay on the first request.
+
     Returns:
         SentenceTransformer model instance
     """

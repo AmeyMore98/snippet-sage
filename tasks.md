@@ -241,7 +241,7 @@ _(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 
-## Phase 9 — DSPy Answerer
+## Phase 9 — DSPy Answerer - Done
 
 ### T9.1 — Signature
 

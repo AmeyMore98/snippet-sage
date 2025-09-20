@@ -223,7 +223,7 @@ Add `__init__.py` inside Python dirs.
 
 ---
 
-## Phase 8 — Reranker
+## Phase 8 — Reranker - Done
 
 ### T8.1 — Interface + stub
 
@@ -237,7 +237,7 @@ Add `__init__.py` inside Python dirs.
 **End:** `rag/reranker.topn(query, candidates, n=6)->list` sorted by score.
 **Test:** Returns exactly n items (or fewer if not enough).
 
-_(Optional later: swap stub with small cross-encoder.)_
+_(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 

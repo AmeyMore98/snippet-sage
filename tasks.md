@@ -145,7 +145,7 @@ Add `__init__.py` inside Python dirs.
 
 ---
 
-## Phase 5 — Chunker
+## Phase 5 — Chunker - Done
 
 ### T5.1 — Paragraph splitter
 
@@ -167,7 +167,7 @@ Add `__init__.py` inside Python dirs.
 
 ---
 
-## Phase 6 — Embedder
+## Phase 6 — Embedder - Done
 
 ### T6.1 — Model loader
 
@@ -189,7 +189,7 @@ Add `__init__.py` inside Python dirs.
 
 ---
 
-## Phase 7 — Retriever (Hybrid)
+## Phase 7 — Retriever (Hybrid) - Done
 
 ### T7.1 — Vector search
 

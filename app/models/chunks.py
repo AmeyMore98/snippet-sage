@@ -5,13 +5,13 @@ from .base import UUIDModel
 
 class Chunk(UUIDModel):
     document = fields.ForeignKeyField("models.Document", related_name="chunks", on_delete=fields.CASCADE)
-    """
-    The `fts` column for full-text search is a tsvector generated from the `text` column.
-    It is computed automatically at the database level, not in the application,
-    to ensure maximum consistency.
-    """
     text = fields.TextField()
     chunk_sha256 = fields.CharField(max_length=64, unique=True)
+
+    # PostgreSQL tsvector column for full-text search
+    # Generated automatically: to_tsvector('english', text)
+    # Note: This field is read-only and computed at the database level for maximum consistency
+    fts = fields.TextField(null=True, description="Full-text search vector (computed)")  # tsvector stored as text
 
     class Meta:
         table = "chunks"

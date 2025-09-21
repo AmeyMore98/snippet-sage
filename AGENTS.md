@@ -9,3 +9,7 @@
 
 - Tests are located in `app/tests`.
 - Add or update tests for the code you change, even if nobody asked.
+
+## Misc. instructions
+
+- At the end of each task, always thoroughly explain your decisions

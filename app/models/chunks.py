@@ -13,5 +13,9 @@ class Chunk(UUIDModel):
     # Note: This field is read-only and computed at the database level for maximum consistency
     fts = fields.TextField(null=True, description="Full-text search vector (computed)")  # tsvector stored as text
 
+    @property
+    def text_preview(self) -> str:
+        return self.text[:157] + "..." if len(self.text) > 160 else self.text
+
     class Meta:
         table = "chunks"

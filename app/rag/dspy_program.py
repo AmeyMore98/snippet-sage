@@ -15,11 +15,10 @@ class AnswerSignature(dspy.Signature):
     confidence = dspy.OutputField(desc="float 0..1")
 
 
-# T9.2 - Program
 Answerer = dspy.Predict(AnswerSignature)
 
 
-# T9.3 - Contract wrapper
+# TODO: Why not async?
 def run_answerer(question: str, passages: list[Hit]) -> dict:
     """
     Formats passages into a context string, calls the DSPy program,

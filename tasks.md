@@ -263,7 +263,7 @@ _(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 
-## Phase 10 — LangGraph Graph
+## Phase 10 — LangGraph Graph - Done
 
 ### T10.1 — Parse node
 

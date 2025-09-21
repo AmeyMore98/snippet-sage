@@ -2,19 +2,14 @@ import pytest
 from tortoise import Tortoise
 
 
-@pytest.fixture(scope="session", autouse=True)
-async def init_db():
-    await Tortoise.init(db_url="sqlite://:memory:", modules={"models": ["app.tests.test_models"]})
+@pytest.fixture(autouse=True)
+async def db_session():
+    db_url = "postgres://root:root@localhost:5432/snippet_sage_test"
+    await Tortoise.init(db_url=db_url, modules={"models": ["app.models"]})
     await Tortoise.generate_schemas()
     yield
+    from app.models import Chunk, Document
+
+    await Chunk.all().delete()
+    await Document.all().delete()
     await Tortoise.close_connections()
-
-
-@pytest.fixture(autouse=True)
-async def cleanup_db():
-    """Clean up database between tests"""
-    from app.tests.test_models import TimestampedTestModel, UUIDTestModel
-
-    yield
-    await UUIDTestModel.all().delete()
-    await TimestampedTestModel.all().delete()

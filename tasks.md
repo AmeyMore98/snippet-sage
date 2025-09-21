@@ -241,7 +241,7 @@ _(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 
-## Phase 9 — DSPy Answerer
+## Phase 9 — DSPy Answerer - Done
 
 ### T9.1 — Signature
 
@@ -263,7 +263,7 @@ _(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 
-## Phase 10 — LangGraph Graph
+## Phase 10 — LangGraph Graph - Done
 
 ### T10.1 — Parse node
 

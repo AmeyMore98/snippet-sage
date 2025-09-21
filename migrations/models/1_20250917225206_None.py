@@ -6,7 +6,6 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
     CREATE TABLE IF NOT EXISTS "documents" (
         "id" UUID NOT NULL PRIMARY KEY,
         "source" VARCHAR(255),
-        "user_created_at" TIMESTAMPTZ,
         "content_sha256" VARCHAR(64) NOT NULL UNIQUE,
         "raw_text" TEXT NOT NULL
     );
@@ -34,8 +33,8 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
 
 async def downgrade(db: BaseDBAsyncClient) -> str:
     return """
-    DROP TABLE IF EXISTS "aerich";
     DROP TABLE IF EXISTS "embeddings";
     DROP TABLE IF EXISTS "chunks";
     DROP TABLE IF EXISTS "documents";
+    DROP TABLE IF EXISTS "aerich";
     """

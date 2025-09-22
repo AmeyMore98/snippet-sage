@@ -1,7 +1,6 @@
 import pytest
 
-from app.models.chunks import Chunk
-from app.models.document import Document
+from app.models import Chunk, Document
 
 
 @pytest.mark.asyncio

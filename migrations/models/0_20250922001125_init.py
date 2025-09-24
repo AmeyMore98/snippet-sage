@@ -16,7 +16,6 @@ async def upgrade(db: BaseDBAsyncClient) -> str:
             "chunk_sha256" VARCHAR(64) NOT NULL UNIQUE,
             "document_id" UUID NOT NULL REFERENCES "documents" ("id") ON DELETE CASCADE
         );
-        COMMENT ON COLUMN "chunks"."fts" IS 'Full-text search vector (computed)';
         CREATE TABLE IF NOT EXISTS "embeddings" (
             "id" UUID NOT NULL PRIMARY KEY,
             "vector" public.vector(384) NOT NULL,

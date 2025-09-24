@@ -15,7 +15,7 @@ from app.rag.graph import (
     re_rank_node,
     retrieve_node,
 )
-from app.rag.schemas import Hit
+from app.schemas.hit import Hit
 
 
 class TestParseNode:

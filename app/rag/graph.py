@@ -11,11 +11,11 @@ from langgraph.graph import END, StateGraph
 
 from ..core.text import normalize
 from ..models.chunks import Chunk
+from ..schemas.hit import Hit
 from .dspy_program import run_answerer
 from .embedder import embed_texts
 from .re_ranker import re_rank_hits
 from .retriever import hybrid_search
-from .schemas import Hit
 
 logger = logging.getLogger(__name__)
 

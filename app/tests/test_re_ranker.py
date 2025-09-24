@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from app.rag.re_ranker import re_rank_hits
-from app.rag.schemas import Hit
+from app.schemas.hit import Hit
 
 
 class TestRerankHits:

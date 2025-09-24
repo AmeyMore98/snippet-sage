@@ -303,7 +303,7 @@ _(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 
-## Phase 11 — Services
+## Phase 11 — Services - Done
 
 ### T11.1 — Ingestion service
 

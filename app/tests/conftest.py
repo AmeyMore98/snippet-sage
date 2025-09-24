@@ -8,8 +8,7 @@ async def db_session():
     await Tortoise.init(db_url=db_url, modules={"models": ["app.models"]})
     await Tortoise.generate_schemas()
     yield
-    from app.models import Chunk, Document
-
-    await Chunk.all().delete()
-    await Document.all().delete()
+    for app in Tortoise.apps.values():
+        for model in app.values():
+            await model.all().delete()
     await Tortoise.close_connections()

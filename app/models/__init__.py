@@ -1,6 +1,6 @@
-from .base import TimestampedModel, UUIDModel
+from .base import UUIDModel
 from .chunks import Chunk
 from .document import Document
 from .embeddings import Embedding
 
-__all__ = ["TimestampedModel", "UUIDModel", "Document", "Chunk", "Embedding"]
+__all__ = ["UUIDModel", "Document", "Chunk", "Embedding"]

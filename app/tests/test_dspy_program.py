@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from app.rag.dspy_program import run_answerer
-from app.rag.schemas import Hit
+from app.schemas.hit import Hit
 
 # Sample passages to be used in tests
 SAMPLE_PASSAGES = [

@@ -2,7 +2,7 @@ import ast
 
 import dspy
 
-from .schemas import Hit
+from ..schemas.hit import Hit
 
 
 class AnswerSignature(dspy.Signature):

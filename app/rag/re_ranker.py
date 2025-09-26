@@ -6,7 +6,7 @@ import anyio
 from sentence_transformers import CrossEncoder
 from torch import nn
 
-from .schemas import Hit
+from ..schemas.hit import Hit
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from .base import UUIDModel
 
 class Embedding(UUIDModel):
     chunk = fields.OneToOneField("models.Chunk", on_delete=fields.CASCADE, related_name="embedding")
-    vector = VectorField(vector_size=1536)
+    vector = VectorField(vector_size=384)
     dim = fields.IntField()
 
     class Meta:

@@ -3,7 +3,7 @@
 import pytest
 
 from app.rag.retriever import fuse, normalize_scores
-from app.rag.schemas import Hit
+from app.schemas.hit import Hit
 
 
 class TestNormalizeScores:

@@ -11,6 +11,18 @@ import pytest
 from app.rag.embedder import embed_texts, get_embedding_dimension, load_model, persist_embeddings
 
 
+@pytest.fixture(autouse=True)
+def reset_embedder_model():
+    """Resets the cached model in the embedder module before and after each test."""
+    import app.rag.embedder
+
+    app.rag.embedder._model = None
+    app.rag.embedder._settings = None
+    yield
+    app.rag.embedder._model = None
+    app.rag.embedder._settings = None
+
+
 class TestLoadModel:
     """Test cases for the load_model function."""
 
@@ -18,12 +30,6 @@ class TestLoadModel:
     @patch("app.rag.embedder.Settings")
     def test_load_model_success(self, mock_settings, mock_sentence_transformer):
         """Test successful model loading."""
-        # Reset global state
-        import app.rag.embedder
-
-        app.rag.embedder._model = None
-        app.rag.embedder._settings = None
-
         # Mock the settings
         mock_settings_instance = MagicMock()
         mock_settings_instance.EMBEDDING_MODEL = "test-model"
@@ -43,12 +49,6 @@ class TestLoadModel:
     @patch("app.rag.embedder.SentenceTransformer")
     def test_load_model_caching(self, mock_sentence_transformer):
         """Test that model is cached and not reloaded."""
-        # Reset global state
-        import app.rag.embedder
-
-        app.rag.embedder._model = None
-        app.rag.embedder._settings = None
-
         mock_model = MagicMock()
         mock_sentence_transformer.return_value = mock_model
 

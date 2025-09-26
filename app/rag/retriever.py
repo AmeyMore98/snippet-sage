@@ -6,7 +6,7 @@ import logging
 import numpy as np
 from tortoise.connection import connections
 
-from .schemas import Hit
+from ..schemas.hit import Hit
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +25,14 @@ async def vector_search(query_vector: np.ndarray, k: int) -> list[Hit]:
     conn = connections.get("default")
 
     # Convert numpy array to list for SQL parameter
-    query_vec_list = query_vector.tolist()
+    query_vec_list = str(query_vector.tolist())
 
     # Use cosine similarity (1 - cosine distance) for scoring
     # The <=> operator computes cosine distance
     query = """
         SELECT
             c.id as chunk_id,
-            1 - (e.vector <=> $1) as vscore,
+            1 - (e.vector <=> $1) as vscore
         FROM embeddings e
         JOIN chunks c ON c.id = e.chunk_id
         ORDER BY e.vector <=> $1
@@ -68,7 +68,7 @@ async def lexical_search(query: str, k: int) -> list[Hit]:
     query_sql = """
         SELECT
             id as chunk_id,
-            ts_rank(fts, plainto_tsquery('english', $1)) as lscore,
+            ts_rank(to_tsvector(fts), plainto_tsquery('english', $1)) as lscore
         FROM chunks
         WHERE fts @@ plainto_tsquery('english', $1)
         ORDER BY lscore DESC

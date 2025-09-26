@@ -31,7 +31,6 @@ class IngestionService:
 
         Raises:
             ValueError: If the input text is too short or too long.
-            IntegrityError: If a document with the same content_sha256 already exists.
             Exception: For other unexpected errors during ingestion.
         """
         raw_text = payload.text
@@ -78,19 +77,22 @@ class IngestionService:
             if not text_chunks:
                 raise ValueError("No chunks were generated from the document text.")
 
-            chunk_ids = []
+            # Prepare chunk objects for bulk insertion
             chunk_objects = []
-            for i, chunk_text in enumerate(text_chunks):
+            for chunk_text in text_chunks:
                 chunk_sha256 = hashing.sha256(chunk_text)
-                chunk_obj = await Chunk.create(
+                chunk_obj = Chunk(
                     document=document,
-                    ordinal=i,
                     text=chunk_text,
                     chunk_sha256=chunk_sha256,
-                    using_db=connection,
                 )
                 chunk_objects.append(chunk_obj)
-                chunk_ids.append(chunk_obj.id)
+
+            # Bulk create chunks - this returns the created objects with IDs populated
+            await Chunk.bulk_create(chunk_objects, using_db=connection)
+
+            # Extract chunk IDs from the created objects
+            chunk_ids = [chunk.id for chunk in chunk_objects]
             logger.info(f"Created {len(chunk_objects)} chunks for document {document.id}")
 
             # 7. Embed the chunks
@@ -104,4 +106,4 @@ class IngestionService:
                 await embedder.persist_embeddings(chunk_ids, embeddings_np)
                 logger.info(f"Persisted embeddings for {len(chunk_ids)} chunks.")
 
-            return document.id, chunk_ids
+        return document.id, chunk_ids

@@ -19,7 +19,7 @@ class QAService:
         # or dependency injection to ensure it's only built once.
         self.compiled_graph = build_graph()
 
-    async def answer(self, q: str, k: int = None, eval_mode: bool = False) -> AnswerResponse:
+    async def answer(self, ques: str, k: int = None, eval_mode: bool = False) -> AnswerResponse:
         """
         Generates an answer to a given question using the RAG pipeline orchestrated by LangGraph.
 
@@ -31,17 +31,17 @@ class QAService:
         Returns:
             An AnswerResponse object containing the answer, citations, and confidence.
         """
-        if not q:
+        if not ques:
             raise ValueError("Question cannot be empty.")
 
         # Cap k to a reasonable maximum to prevent excessive retrieval
         max_k = 50  # As per architecture.md
         effective_k = min(k if k is not None else settings.RETRIEVAL_K, max_k)
 
-        logger.info(f"Answering question: '{q}' with k={effective_k}, eval_mode={eval_mode}")
+        logger.info(f"Answering question: '{ques}' with k={effective_k}, eval_mode={eval_mode}")
 
         # Prepare initial state for the graph
-        initial_state = {"question": q, "k": effective_k}
+        initial_state = {"question": ques, "k": effective_k}
 
         # Execute the LangGraph
         # The graph's output is expected to be in the 'response' key of the final state
@@ -51,7 +51,7 @@ class QAService:
 
         # If no answer is generated, return a default empty response
         if not response_data:
-            logger.warning(f"LangGraph returned no response for question: '{q}'")
+            logger.warning(f"LangGraph returned no response for question: '{ques}'")
             return AnswerResponse(answer="", citations=[], confidence=0.0)
 
         # Construct AnswerResponse from the graph's output

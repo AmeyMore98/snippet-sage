@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
 
 TORTOISE_ORM = {
-    "connections": {"default": "postgres://root:root@localhost:5432/snippet_sage"},
+    "connections": {"default": Settings().DATABASE_URL},
     "apps": {
         "models": {
             "models": ["app.models", "aerich.models"],

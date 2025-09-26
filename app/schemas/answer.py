@@ -4,6 +4,11 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class AnswerRequest(BaseModel):
+    q: str = Field(..., description="The question to answer.")
+    k: int | None = Field(None, description="The number of documents to retrieve.")
+
+
 class Citation(BaseModel):
     chunk_id: UUID = Field(..., description="The ID of the cited chunk.")
     preview: str = Field(..., description="A preview of the cited chunk's text.")

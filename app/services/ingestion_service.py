@@ -31,7 +31,6 @@ class IngestionService:
 
         Raises:
             ValueError: If the input text is too short or too long.
-            IntegrityError: If a document with the same content_sha256 already exists.
             Exception: For other unexpected errors during ingestion.
         """
         raw_text = payload.text

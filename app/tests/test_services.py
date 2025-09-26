@@ -59,7 +59,7 @@ class TestIngestionService:
     async def test_ingest_successful(self, mock_embedder_embed_texts, mock_embedder_persist_embeddings):
         service = IngestionService()
         test_text = "This is a test document for ingestion. It has enough characters."
-        payload = IngestRequest(text=test_text, source="test", tags=["unit-test"])
+        payload = IngestRequest(text=test_text, source="test")
 
         doc_id, chunk_ids = await service.ingest(payload)
 

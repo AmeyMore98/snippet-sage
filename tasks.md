@@ -319,7 +319,7 @@ _(Optional later: swap stub with small cross-encoder.)_ - Done
 
 ---
 
-## Phase 12 — FastAPI Surface
+## Phase 12 — FastAPI Surface - Done
 
 ### T12.1 — App factory
 

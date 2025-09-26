@@ -1,11 +1,13 @@
 # Web Framework
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
+gunicorn==22.0.0
 
 # ORM
-tortoise-orm==0.21.3
+tortoise-orm==0.23.0
 aerich==0.8.1
 asyncpg==0.29.0
+tortoise-vector==0.1.4
 
 # Database
 pgvector==0.2.5

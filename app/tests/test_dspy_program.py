@@ -20,118 +20,112 @@ def mock_dspy_output(answer, citations, confidence):
     return mock
 
 
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_happy_path(mock_answerer):
-    """Tests the ideal case with valid citations and confidence."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="This is a correct answer.", citations=["id1", "id2"], confidence="0.85")
-    mock_answerer.return_value = mock_output
+class TestRunAnswerer:
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_happy_path(self, mock_answerer):
+        """Tests the ideal case with valid citations and confidence."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="This is a correct answer.", citations=["id1", "id2"], confidence="0.85")
+        mock_answerer.return_value = mock_output
 
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-    # Assert
-    assert result["answer"] == "This is a correct answer."
-    assert result["confidence"] == 0.85
-    assert result["citations"] == ["id1", "id2"]
-    mock_answerer.assert_called_once()
+        # Assert
+        assert result["answer"] == "This is a correct answer."
+        assert result["confidence"] == 0.85
+        assert result["citations"] == ["id1", "id2"]
+        mock_answerer.assert_called_once()
 
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_citations_as_string_repr(self, mock_answerer):
+        """Tests parsing of citations when returned as a string representation of a list."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations="['id1', 'id3']", confidence="0.9")
+        mock_answerer.return_value = mock_output
 
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_citations_as_string_repr(mock_answerer):
-    """Tests parsing of citations when returned as a string representation of a list."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations="['id1', 'id3']", confidence="0.9")
-    mock_answerer.return_value = mock_output
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
+        # Assert
+        assert result["citations"] == ["id1", "id3"]
 
-    # Assert
-    assert result["citations"] == ["id1", "id3"]
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_citations_as_comma_separated_string(self, mock_answerer):
+        """Tests parsing of citations when returned as a simple comma-separated string."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations="id2, id1", confidence="0.9")
+        mock_answerer.return_value = mock_output
 
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_citations_as_comma_separated_string(mock_answerer):
-    """Tests parsing of citations when returned as a simple comma-separated string."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations="id2, id1", confidence="0.9")
-    mock_answerer.return_value = mock_output
+        # Assert
+        assert sorted(result["citations"]) == ["id1", "id2"]
 
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_filters_invalid_citations(self, mock_answerer):
+        """Tests that citations not present in the source passages are filtered out."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations=["id1", "invalid_id", "id3"], confidence="0.9")
+        mock_answerer.return_value = mock_output
 
-    # Assert
-    assert sorted(result["citations"]) == ["id1", "id2"]
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
+        # Assert
+        assert result["citations"] == ["id1", "id3"]
 
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_filters_invalid_citations(mock_answerer):
-    """Tests that citations not present in the source passages are filtered out."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations=["id1", "invalid_id", "id3"], confidence="0.9")
-    mock_answerer.return_value = mock_output
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_clamps_high_confidence(self, mock_answerer):
+        """Tests that confidence scores > 1.0 are clamped to 1.0."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations=[], confidence="1.5")
+        mock_answerer.return_value = mock_output
 
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-    # Assert
-    assert result["citations"] == ["id1", "id3"]
+        # Assert
+        assert result["confidence"] == 1.0
 
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_clamps_low_confidence(self, mock_answerer):
+        """Tests that confidence scores < 0.0 are clamped to 0.0."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations=[], confidence="-0.5")
+        mock_answerer.return_value = mock_output
 
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_clamps_high_confidence(mock_answerer):
-    """Tests that confidence scores > 1.0 are clamped to 1.0."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations=[], confidence="1.5")
-    mock_answerer.return_value = mock_output
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
+        # Assert
+        assert result["confidence"] == 0.0
 
-    # Assert
-    assert result["confidence"] == 1.0
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_handles_invalid_confidence(self, mock_answerer):
+        """Tests that non-numeric confidence values default to 0.0."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations=[], confidence="not-a-float")
+        mock_answerer.return_value = mock_output
 
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_clamps_low_confidence(mock_answerer):
-    """Tests that confidence scores < 0.0 are clamped to 0.0."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations=[], confidence="-0.5")
-    mock_answerer.return_value = mock_output
+        # Assert
+        assert result["confidence"] == 0.0
 
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
+    @patch("app.rag.dspy_program.Answerer")
+    def test_run_answerer_handles_missing_attributes(self, mock_answerer):
+        """Tests graceful handling of missing 'citations' or 'confidence' in the output."""
+        # Arrange
+        mock_output = mock_dspy_output(answer="Test answer", citations=None, confidence=None)
+        mock_answerer.return_value = mock_output
 
-    # Assert
-    assert result["confidence"] == 0.0
+        # Act
+        result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
 
-
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_handles_invalid_confidence(mock_answerer):
-    """Tests that non-numeric confidence values default to 0.0."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations=[], confidence="not-a-float")
-    mock_answerer.return_value = mock_output
-
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
-
-    # Assert
-    assert result["confidence"] == 0.0
-
-
-@patch("app.rag.dspy_program.Answerer")
-def test_run_answerer_handles_missing_attributes(mock_answerer):
-    """Tests graceful handling of missing 'citations' or 'confidence' in the output."""
-    # Arrange
-    mock_output = mock_dspy_output(answer="Test answer", citations=None, confidence=None)
-    mock_answerer.return_value = mock_output
-
-    # Act
-    result = run_answerer(question="test question", passages=SAMPLE_PASSAGES)
-
-    # Assert
-    assert result["answer"] == "Test answer"
-    assert result["citations"] == []
-    assert result["confidence"] == 0.0
+        # Assert
+        assert result["answer"] == "Test answer"
+        assert result["citations"] == []
+        assert result["confidence"] == 0.0

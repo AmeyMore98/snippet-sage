@@ -1,6 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+import dspy
 from fastapi import FastAPI
 from tortoise import Tortoise
 
@@ -17,6 +18,10 @@ async def lifespan(_app: FastAPI):
     """Handle application startup and shutdown events."""
     logger.info("Starting up the application...")
     settings = Settings()
+
+    lm = dspy.LM(settings.DSPY_MODEL, api_key=settings.DSPY_LM_API_KEY)
+    dspy.settings.configure(lm=lm)
+    logger.info(f"DSPy configured with model: {settings.DSPY_MODEL}")
 
     # Initialize Tortoise ORM
     await Tortoise.init(

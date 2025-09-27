@@ -59,7 +59,6 @@ class QAService:
             answer=response_data.get("answer", ""),
             citations=response_data.get("citations", []),
             confidence=response_data.get("confidence", 0.0),
-            debug=final_state if settings.APP_ENV == "dev" else None,  # Assuming APP_ENV in settings
         )
 
         logger.info(f"Answer generated with confidence: {answer_response.confidence}")

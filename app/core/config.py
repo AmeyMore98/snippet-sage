@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     MIN_INPUT_CHARS: int = 40
     MAX_INPUT_CHARS: int = 200_000
 
+    # DSPy
+    DSPY_MODEL: str = "gemini/gemini-2.5-pro-preview-03-25"
+    DSPY_LM_API_KEY: str
+
 
 TORTOISE_ORM = {
     "connections": {"default": Settings().DATABASE_URL},

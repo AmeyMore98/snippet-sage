@@ -15,7 +15,7 @@ class AnswerSignature(dspy.Signature):
     confidence = dspy.OutputField(desc="float 0..1")
 
 
-Answerer = dspy.Predict(AnswerSignature)
+Answerer = dspy.ChainOfThought(AnswerSignature)
 
 
 # TODO: Why not async?

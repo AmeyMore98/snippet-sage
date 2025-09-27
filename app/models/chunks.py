@@ -11,7 +11,9 @@ class Chunk(UUIDModel):
     # PostgreSQL tsvector column for full-text search
     # Generated automatically: to_tsvector('english', text)
     # Note: This field is read-only and computed at the database level for maximum consistency
-    fts = fields.TextField(null=True, description="Full-text search vector (computed)")  # tsvector stored as text
+    fts = fields.TextField(
+        null=True, generated=True, description="Full-text search vector (computed)"
+    )  # tsvector stored as text
 
     @property
     def text_preview(self) -> str:

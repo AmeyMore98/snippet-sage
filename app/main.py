@@ -1,8 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
 
+import dspy
 from fastapi import FastAPI
-from tortoise.contrib.fastapi import RegisterTortoise
+from tortoise import Tortoise
 
 from app.api import answer, ingest
 from app.core.config import Settings
@@ -13,17 +14,32 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Handle application startup and shutdown events."""
     logger.info("Starting up the application...")
-    # The database connection is managed by register_tortoise's lifespan
+    settings = Settings()
+
+    lm = dspy.LM(settings.DSPY_MODEL, api_key=settings.DSPY_LM_API_KEY)
+    dspy.settings.configure(lm=lm)
+    logger.info(f"DSPy configured with model: {settings.DSPY_MODEL}")
+
+    # Initialize Tortoise ORM
+    await Tortoise.init(
+        db_url=settings.DATABASE_URL,
+        modules={"models": ["app.models", "aerich.models"]},
+    )
+    logger.info("Database initialized successfully")
+
     yield
+
     logger.info("Shutting down the application...")
+    # Close database connections
+    await Tortoise.close_connections()
+    logger.info("Database connections closed")
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    settings = Settings()
     app = FastAPI(
         title="Personal Knowledge Base (PKB) MVP",
         description="A minimal RAG-based knowledge base with FastAPI.",
@@ -34,14 +50,6 @@ def create_app() -> FastAPI:
     # Include API routers
     app.include_router(ingest.router, prefix="/api/v1", tags=["Ingestion"])
     app.include_router(answer.router, prefix="/api/v1", tags=["QA"])
-
-    # Initialize database
-    RegisterTortoise(
-        app,
-        db_url=settings.DATABASE_URL,
-        modules={"models": ["app.models", "aerich.models"]},
-        generate_schemas=False,  # Let Aerich handle schema generation
-    )
 
     @app.get("/health", tags=["Health"])
     async def health_check():

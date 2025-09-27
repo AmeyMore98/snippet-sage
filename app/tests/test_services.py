@@ -99,14 +99,6 @@ class TestIngestionService:
         mock_embedder_embed_texts.assert_called_once()
         mock_embedder_persist_embeddings.assert_called_once()
 
-    async def test_ingest_text_too_short(self):
-        service = IngestionService()
-        short_text = "short"
-        payload = IngestRequest(text=short_text)
-
-        with pytest.raises(ValueError, match="Input text is too short"):
-            await service.ingest(payload)
-
     async def test_ingest_text_too_long(self):
         service = IngestionService()
         long_text = "a" * (settings.MAX_INPUT_CHARS + 1)

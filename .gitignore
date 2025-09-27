@@ -97,6 +97,7 @@ venv/
 ENV/
 env.bak
 venv.bak
+.env.test
 
 # Spyder project settings
 .spyderproject
@@ -126,3 +127,5 @@ ehthumbs.db
 Thumbs.db
 
 .vscode
+
+run.**

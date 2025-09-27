@@ -68,7 +68,7 @@ async def lexical_search(query: str, k: int) -> list[Hit]:
     query_sql = """
         SELECT
             id as chunk_id,
-            ts_rank(to_tsvector(fts), plainto_tsquery('english', $1)) as lscore
+            ts_rank(fts, plainto_tsquery('english', $1)) as lscore
         FROM chunks
         WHERE fts @@ plainto_tsquery('english', $1)
         ORDER BY lscore DESC

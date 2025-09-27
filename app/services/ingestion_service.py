@@ -36,8 +36,6 @@ class IngestionService:
         raw_text = payload.text
 
         # 1. Validate input text length
-        if not raw_text or len(raw_text) < settings.MIN_INPUT_CHARS:
-            raise ValueError(f"Input text is too short (min: {settings.MIN_INPUT_CHARS} characters).")
         if len(raw_text) > settings.MAX_INPUT_CHARS:
             raise ValueError(f"Input text is too long (max: {settings.MAX_INPUT_CHARS} characters).")
 

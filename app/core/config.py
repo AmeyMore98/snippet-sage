@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     PORT: int = 8080  # Keep for compatibility
 
     # Database
-    DATABASE_URL: str = "postgres://root:root@localhost:5432/snippet_sage_test"
+    DATABASE_URL: str
 
     # Embeddings
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP_SENTENCES: int = 1
     MIN_INPUT_CHARS: int = 40
     MAX_INPUT_CHARS: int = 200_000
+
+    # DSPy
+    DSPY_MODEL: str = "gemini/gemini-2.5-pro-preview-03-25"
+    DSPY_LM_API_KEY: str
 
 
 TORTOISE_ORM = {

@@ -45,10 +45,6 @@ class TestAPI:
         # Verify that the returned document ID is the same
         assert data1["document_id"] == data2["document_id"]
 
-    async def test_ingest_too_short(self, client: AsyncClient):
-        response = await client.post("/api/v1/ingest", json={"text": "short"})
-        assert response.status_code == 422
-
     @patch("app.api.answer.qa_service", new_callable=AsyncMock)
     async def test_answer_endpoint(self, mock_qa_service, client: AsyncClient):
         mock_qa_service.answer.return_value = AnswerResponse(

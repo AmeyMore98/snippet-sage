@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     MAX_INPUT_CHARS: int = 200_000
 
     # DSPy
-    DSPY_MODEL: str = "gemini/gemini-2.5-pro-preview-03-25"
+    DSPY_MODEL: str
     DSPY_LM_API_KEY: str
 
 

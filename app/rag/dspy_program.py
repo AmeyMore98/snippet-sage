@@ -31,7 +31,11 @@ def run_answerer(question: str, passages: list[Hit]) -> dict:
     Returns:
         A dictionary containing the answer, citations, and confidence score.
     """
-    context = "\n\n".join(f"[chunk_id={ele.chunk_id} score={ele.re_rank_score:.2f}]\n{ele.text}" for ele in passages)
+    # `effective_at` tells the LM which information is latest
+    context = "\n\n".join(
+        f"[chunk_id={ele.chunk_id} score={ele.re_rank_score:.2f} effective_at={ele.created_at}]\n{ele.text}"
+        for ele in passages
+    )
 
     # This call requires a configured DSPy language model.
     # e.g., dspy.settings.configure(lm=dspy.OpenAI(model="gpt-3.5-turbo"))

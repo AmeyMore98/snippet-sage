@@ -187,13 +187,13 @@ async def cite_node(state: GraphState) -> GraphState:
 
 async def _enrich_hits_with_text(hits: list[Hit]) -> list[Hit]:
     """
-    Enrich hits with text content from database.
+    Enrich hits with more details from the database.
 
     Args:
         hits: List of hits with chunk_id and retrieval_score
 
     Returns:
-        List of hits enriched with text content
+        List of hits enriched with text content and other details
     """
     if not hits:
         return hits
@@ -201,21 +201,33 @@ async def _enrich_hits_with_text(hits: list[Hit]) -> list[Hit]:
     chunk_ids = [hit.chunk_id for hit in hits]
 
     try:
-        # Fetch chunks using Tortoise ORM
-        chunks_data = await Chunk.filter(id__in=chunk_ids).values("id", "text")
+        # Fetch chunks and related documents
+        # TODO: Check the underlying query, might not be performant
+        chunks_data = (
+            await Chunk.filter(id__in=chunk_ids).select_related("document").values("id", "text", "document__created_at")
+        )
 
         # Create lookup map of text content
         text_map = {}
         for chunk_data in chunks_data:
             chunk_id = str(chunk_data["id"])
             text = chunk_data["text"]
-            text_map[chunk_id] = {"text": text, "text_preview": text[:157] + "..." if len(text) > 160 else text}
+            created_at = chunk_data["document__created_at"]
+            text_map[chunk_id] = {
+                "text": text,
+                "text_preview": text[:157] + "..." if len(text) > 160 else text,
+                "created_at": created_at.isoformat() if created_at else "",
+            }
 
-        # Enrich hits with text content
+        # Enrich hits
         enriched_hits = []
         for hit in hits:
-            text_data = text_map.get(hit.chunk_id, {})
-            enriched_hit = hit._replace(text=text_data.get("text", ""), text_preview=text_data.get("text_preview", ""))
+            data = text_map.get(hit.chunk_id, {})
+            enriched_hit = hit._replace(
+                text=data.get("text", ""),
+                text_preview=data.get("text_preview", ""),
+                created_at=data.get("created_at", ""),
+            )
             enriched_hits.append(enriched_hit)
 
         return enriched_hits

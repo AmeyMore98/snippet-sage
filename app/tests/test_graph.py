@@ -2,6 +2,7 @@
 Tests for the LangGraph orchestration module.
 """
 
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import numpy as np
@@ -273,13 +274,13 @@ class TestEnrichHitsWithText:
     @patch("app.rag.graph.Chunk")
     async def test_enrich_hits_success(self, mock_chunk):
         """Test successful hit enrichment with database data."""
-        # Mock Chunk.filter().values() to return the expected data
-        mock_chunk.filter.return_value.values = AsyncMock(
-            return_value=[
-                {"id": "chunk-1", "text": "Full text content 1"},
-                {"id": "chunk-2", "text": "Full text content 2"},
-            ]
-        )
+        # Mock Chunk.filter().select_related().values() to return the expected data
+        mock_queryset = AsyncMock()
+        mock_queryset.values.return_value = [
+            {"id": "chunk-1", "text": "Full text content 1", "document__created_at": datetime(2023, 1, 1, 10, 0, 0)},
+            {"id": "chunk-2", "text": "Full text content 2", "document__created_at": datetime(2023, 1, 2, 11, 0, 0)},
+        ]
+        mock_chunk.filter.return_value.select_related.return_value = mock_queryset
 
         hits = [Hit(chunk_id="chunk-1", retrieval_score=0.9), Hit(chunk_id="chunk-2", retrieval_score=0.8)]
 
@@ -288,6 +289,10 @@ class TestEnrichHitsWithText:
         assert len(enriched) == 2
         assert enriched[0].chunk_id == "chunk-1"
         assert enriched[0].text == "Full text content 1"
+        assert enriched[0].created_at == datetime(2023, 1, 1, 10, 0, 0).isoformat()
+        assert enriched[1].chunk_id == "chunk-2"
+        assert enriched[1].text == "Full text content 2"
+        assert enriched[1].created_at == datetime(2023, 1, 2, 11, 0, 0).isoformat()
         assert enriched[0].text_preview == "Full text content 1"
         assert enriched[0].retrieval_score == 0.9
 

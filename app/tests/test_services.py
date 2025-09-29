@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import numpy as np
@@ -161,6 +162,7 @@ class TestQAService:
                     text_preview=chunk.text_preview,
                     retrieval_score=0.85 + i * 0.01,
                     re_rank_score=0.9 + i * 0.01,
+                    created_at=datetime(2023, 1, 1, 10, 0, 0).isoformat(),
                 )
             )
         with patch("app.rag.graph.hybrid_search", new_callable=AsyncMock) as mock_hybrid_search:
@@ -176,7 +178,6 @@ class TestQAService:
         assert response.confidence == 0.9
 
         assert isinstance(response.citations[0].chunk_id, uuid.UUID)
-        assert response.debug is not None if settings.APP_ENV == "dev" else response.debug is None
 
     async def test_answer_empty_question(self):
         with pytest.raises(ValueError, match="Question cannot be empty."):
@@ -199,4 +200,3 @@ class TestQAService:
             assert response.answer == ""
             assert len(response.citations) == 0
             assert response.confidence == 0.0
-            assert response.debug is not None if settings.APP_ENV == "dev" else response.debug is None

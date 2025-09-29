@@ -11,3 +11,4 @@ class Hit(NamedTuple):
     text: str = ""
     text_preview: str = ""  # For debugging purposes
     re_rank_score: float = 0.0
+    created_at: str = ""

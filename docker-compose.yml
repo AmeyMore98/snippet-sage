@@ -39,6 +39,7 @@ services:
     container_name: snippet-sage-migrations
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
       DSPY_MODEL: ${DSPY_MODEL}
       DSPY_LM_API_KEY: ${DSPY_LM_API_KEY}
     depends_on:

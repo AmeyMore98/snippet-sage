@@ -6,7 +6,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc g++
+RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ curl
 
 COPY requirements.txt .
 RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
@@ -17,6 +17,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Install curl for healthcheck
+# RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user
 RUN addgroup --system app && adduser --system --group --home /app app
 
@@ -26,6 +29,10 @@ RUN pip install --no-cache-dir /wheels/*
 
 # Copy application code
 COPY ./app ./app
+
+# Copy Aerich configuration and migrations
+COPY ./pyproject.toml ./pyproject.toml
+COPY ./migrations ./migrations
 
 # Set ownership
 RUN mkdir /app/.dspy_cache

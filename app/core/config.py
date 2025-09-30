@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
 
+    # Redis
+    REDIS_URL: str
+
     # Embeddings
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
     EMBEDDING_DIM: int = 384  # Default for all-MiniLM-L6-v2

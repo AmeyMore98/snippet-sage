@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 
 from app.core.config import Settings
-from app.models import Chunk, Document, Embedding
+from app.models import Chunk, Document
 from app.rag.embedder import get_embedding_dimension
 from app.schemas.hit import Hit  # Import Hit for type hinting in mock
 from app.schemas.ingest import IngestRequest
@@ -37,14 +37,6 @@ def mock_embedder_embed_texts():
 
 
 @pytest.fixture
-def mock_embedder_persist_embeddings():
-    """Mock embedder.persist_embeddings to do nothing."""
-    with patch("app.rag.embedder.persist_embeddings", new_callable=AsyncMock) as mock_persist:
-        mock_persist.return_value = 1
-        yield mock_persist
-
-
-@pytest.fixture
 def mock_graph_run_answerer():
     """Mock graph.run_answerer for QAService tests."""
     with patch("app.rag.graph.run_answerer") as mock_run_answerer:
@@ -57,83 +49,133 @@ def mock_graph_run_answerer():
 
 
 class TestIngestionService:
-    async def test_ingest_successful(self, mock_embedder_embed_texts, mock_embedder_persist_embeddings):
+    async def test_create_document_successful(self):
+        """Test creating a document with valid input."""
         service = IngestionService()
         test_text = "This is a test document for ingestion. It has enough characters."
         payload = IngestRequest(text=test_text, source="test")
 
-        doc_id, chunk_ids = await service.ingest(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         assert doc_id is not None
-        assert len(chunk_ids) > 0
 
         document = await Document.get(id=doc_id)
         assert document.source == "test"
+        assert document.status == "PENDING"
+        assert document.content_sha256 is not None
+        assert document.raw_text is not None
 
-        chunks = await Chunk.filter(document=document)
-        assert len(chunks) == len(chunk_ids)
-        assert all(c.id in chunk_ids for c in chunks)
-
-        # With persist_embeddings mocked, we should not find any embeddings in the DB
-        embeddings = await Embedding.filter(chunk_id__in=chunk_ids)
-        assert len(embeddings) == 0
-
-        mock_embedder_embed_texts.assert_called_once()
-        mock_embedder_persist_embeddings.assert_awaited_once()
-
-    async def test_ingest_deduplication(self, mock_embedder_embed_texts, mock_embedder_persist_embeddings):
+    async def test_create_document_deduplication(self):
+        """Test that duplicate documents return the existing document ID."""
         service = IngestionService()
-        test_text = "This is a document to test deduplication. It should only be ingested once."
+        test_text = "This is a document to test deduplication. It should only be created once."
         payload = IngestRequest(text=test_text, source="test")
 
-        # First ingestion
-        doc_id_1, chunk_ids_1 = await service.ingest(payload)
-        assert doc_id_1 is not None
-        assert len(chunk_ids_1) > 0
+        # First creation
+        result1 = await service.create_document(payload)
+        assert result1.document_id is not None
+        assert result1.was_created is True
 
-        # Second ingestion of the same text
-        doc_id_2, chunk_ids_2 = await service.ingest(payload)
-        assert doc_id_2 == doc_id_1
-        assert chunk_ids_2 == chunk_ids_1  # Should return the same chunk IDs
+        # Second creation of the same text
+        result2 = await service.create_document(payload)
+        assert result2.document_id == result1.document_id
+        assert result2.was_created is False
 
-        # Embedder should only be called once for the unique content
-        mock_embedder_embed_texts.assert_called_once()
-        mock_embedder_persist_embeddings.assert_called_once()
+        # Verify only one document exists in the database
+        documents = await Document.filter(content_sha256=(await Document.get(id=result1.document_id)).content_sha256)
+        assert len(documents) == 1
 
-    async def test_ingest_text_too_long(self):
+    async def test_create_document_text_too_long(self):
+        """Test that text exceeding max length raises ValueError."""
         service = IngestionService()
         long_text = "a" * (settings.MAX_INPUT_CHARS + 1)
         payload = IngestRequest(text=long_text)
 
         with pytest.raises(ValueError, match="Input text is too long"):
-            await service.ingest(payload)
+            await service.create_document(payload)
 
-    async def test_ingest_empty_normalized_text(self):
+    async def test_create_document_empty_normalized_text(self):
+        """Test that text normalizing to empty raises ValueError."""
         service = IngestionService()
         # Text that normalizes to empty (e.g., only whitespace or control chars)
-        empty_norm_text = " " * (settings.MIN_INPUT_CHARS + 1)  # Long enough but normalizes to empty
+        empty_norm_text = " " * (settings.MIN_INPUT_CHARS + 1)
         payload = IngestRequest(text=empty_norm_text)
 
         with pytest.raises(ValueError, match="Normalized text is empty"):
-            await service.ingest(payload)
+            await service.create_document(payload)
 
-    async def test_ingest_no_chunks_generated(self, mock_embedder_embed_texts, mock_embedder_persist_embeddings):
+    async def test_process_document_successful(self, mock_embedder_embed_texts):
+        """Test processing a document creates chunks and embeddings."""
         service = IngestionService()
+
+        # Create a document first
+        test_text = "This is a test document for processing. It has enough characters to be chunked properly."
+        payload = IngestRequest(text=test_text, source="test")
+        result = await service.create_document(payload)
+        doc_id = result.document_id
+        document = await Document.get(id=doc_id)
+
+        # Process the document
+        chunk_ids = await service.process_document(document)
+
+        assert len(chunk_ids) > 0
+
+        # Verify chunks were created
+        chunks = await Chunk.filter(document=document)
+        assert len(chunks) == len(chunk_ids)
+        assert all(c.id in chunk_ids for c in chunks)
+
+        # Verify embedder was called
+        mock_embedder_embed_texts.assert_called_once()
+
+    async def test_process_document_no_chunks_generated(self, mock_embedder_embed_texts):
+        """Test that processing fails if no chunks are generated."""
+        service = IngestionService()
+
+        # Create a document
+        test_text = "This text should not be chunked. It is long enough to pass initial validation."
+        payload = IngestRequest(text=test_text, source="test")
+        result = await service.create_document(payload)
+        doc_id = result.document_id
+        document = await Document.get(id=doc_id)
+
         # Mock chunker to return empty list
         with patch("app.rag.chunker.make_chunks", return_value=[]):
-            test_text = "This text should not be chunked. It is long enough to pass initial validation."  # Long enough
-            payload = IngestRequest(text=test_text)
-
             with pytest.raises(ValueError, match="No chunks were generated"):
-                await service.ingest(payload)
+                await service.process_document(document)
 
             mock_embedder_embed_texts.assert_not_called()
-            mock_embedder_persist_embeddings.assert_not_called()
+
+    async def test_process_document_embedding_mismatch(self):
+        """Test that processing fails if embeddings don't match chunk count."""
+        service = IngestionService()
+
+        # Create a document with enough text to generate multiple chunks
+        test_text = (
+            "This is the first sentence. This is the second sentence. This is the third sentence. "
+            "This is the fourth sentence. This is the fifth sentence. This is the sixth sentence. "
+            "This is the seventh sentence. This is the eighth sentence. This is the ninth sentence. "
+            "This should generate at least two chunks based on the chunking configuration."
+        )
+        payload = IngestRequest(text=test_text, source="test")
+        result = await service.create_document(payload)
+        doc_id = result.document_id
+        document = await Document.get(id=doc_id)
+
+        # Mock embedder to return wrong number of embeddings (always return just 1)
+        with patch("app.services.ingestion_service.embedder.embed_texts") as mock_embed:
+            mock_embed.return_value = np.random.rand(1, get_embedding_dimension()).astype(
+                np.float32
+            )  # Only 1 embedding
+
+            with pytest.raises(RuntimeError, match="Mismatch between number of chunks and generated embeddings"):
+                await service.process_document(document)
 
 
 class TestQAService:
     @pytest_asyncio.fixture(autouse=True)
-    async def setup_qa_service_tests(self, mock_graph_run_answerer):
+    async def setup_qa_service_tests(self, mock_graph_run_answerer, mock_embedder_embed_texts):
         """
         Setup for QA service tests.
         Ingest a document to ensure there's data for retrieval.
@@ -141,10 +183,13 @@ class TestQAService:
         self.ingestion_service = IngestionService()
         self.qa_service = QAService()
 
-        # Ingest a sample document
+        # Create and process a sample document
         test_text = "Alice met Bob. They built a Personal Knowledge Base MVP. The project uses FastAPI and LangGraph."
         payload = IngestRequest(text=test_text, source="test-qa")
-        self.doc_id, self.chunk_ids = await self.ingestion_service.ingest(payload)
+        result = await self.ingestion_service.create_document(payload)
+        self.doc_id = result.document_id
+        document = await Document.get(id=self.doc_id)
+        self.chunk_ids = await self.ingestion_service.process_document(document)
 
         # Update the mock to use a real chunk_id from the ingested doc
         if self.chunk_ids:

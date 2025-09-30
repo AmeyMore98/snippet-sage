@@ -51,6 +51,16 @@ uvicorn app.main:app --reload --port 8000
 
 The API will be available at `http://localhost:8000`.
 
+### Background Worker
+
+To process async ingestion jobs, you must run the Dramatiq worker:
+
+```bash
+dramatiq app.jobs.ingestion_job
+```
+
+**Note:** The worker requires Redis to be running and the `REDIS_URL` environment variable to be set in your `.env` file.
+
 ### Production
 
 The included `Dockerfile` uses `gunicorn` for production:

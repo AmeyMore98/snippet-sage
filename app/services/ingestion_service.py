@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from uuid import UUID
 
 from app.core import hashing, text
@@ -11,25 +12,40 @@ logger = logging.getLogger(__name__)
 settings = Settings()
 
 
+@dataclass
+class DocumentCreationResult:
+    """Result of creating or retrieving a document."""
+
+    document_id: UUID
+    was_created: bool  # True if newly created, False if already existed
+
+
+@dataclass
+class IngestResult:
+    """Result of an async ingestion operation."""
+
+    document_id: UUID
+    was_created: bool  # True if newly created and job enqueued, False if duplicate
+
+
 class IngestionService:
     """
     Service for orchestrating the ingestion of documents into the PKB.
     Handles normalization, hashing, chunking, embedding, and persistence.
     """
 
-    async def create_document(self, payload: IngestRequest) -> UUID:
+    async def create_document(self, payload: IngestRequest) -> DocumentCreationResult:
         """
-        Validates, normalizes, and creates a document record for async processing.
+        Validates, normalizes, and creates a document record.
 
-        This method handles the synchronous part of ingestion: validation,
-        normalization, deduplication, and document creation. The actual processing
-        (chunking and embedding) is done asynchronously by a background job.
+        This method handles validation, normalization, deduplication, and document creation
+        without enqueuing any background jobs. Useful for testing and internal operations.
 
         Args:
             payload: The IngestRequest containing the text and optional metadata.
 
         Returns:
-            The UUID of the created (or existing) document
+            DocumentCreationResult indicating the document ID and whether it was newly created
 
         Raises:
             ValueError: If the input text is invalid or cannot be normalized
@@ -52,7 +68,7 @@ class IngestionService:
         existing_document = await Document.filter(content_sha256=content_sha256).first()
         if existing_document:
             logger.info(f"Document with SHA256 {content_sha256} already exists. Returning existing document.")
-            return existing_document.id
+            return DocumentCreationResult(document_id=existing_document.id, was_created=False)
 
         # 5. Create Document record
         document = await Document.create(
@@ -62,7 +78,37 @@ class IngestionService:
         )
         logger.info(f"Created document with ID: {document.id}")
 
-        return document.id
+        return DocumentCreationResult(document_id=document.id, was_created=True)
+
+    async def ingest_async(self, payload: IngestRequest) -> IngestResult:
+        """
+        Validates, normalizes, creates a document record, and enqueues it for async processing.
+
+        This method handles the complete async ingestion workflow: validation,
+        normalization, deduplication, document creation, and job enqueueing.
+        If the document is new, it enqueues a background job for processing.
+
+        Args:
+            payload: The IngestRequest containing the text and optional metadata.
+
+        Returns:
+            IngestResult containing the document ID and whether it was newly created
+
+        Raises:
+            ValueError: If the input text is invalid or cannot be normalized
+        """
+        # Import here to avoid circular dependency
+        from app.jobs.ingestion_job import process_ingestion
+
+        # Create the document (handles validation, normalization, and deduplication)
+        result = await self.create_document(payload)
+
+        # Enqueue background job only for new documents
+        if result.was_created:
+            process_ingestion.send(str(result.document_id))
+            logger.info(f"Enqueued processing job for document {result.document_id}")
+
+        return IngestResult(document_id=result.document_id, was_created=result.was_created)
 
     async def process_document(self, document: Document) -> list[UUID]:
         """

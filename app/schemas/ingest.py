@@ -12,5 +12,4 @@ class IngestRequest(BaseModel):
 
 class IngestResponse(BaseModel):
     document_id: UUID = Field(..., description="The ID of the ingested document.")
-    chunk_ids: list[UUID] = Field(..., description="A list of IDs for the created chunks.")
-    chunk_count: int = Field(..., description="The number of chunks created.")
+    message: str = Field(..., description="Status message indicating the document is being processed.")

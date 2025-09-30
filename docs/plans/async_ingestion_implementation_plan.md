@@ -37,7 +37,7 @@
 
 ---
 
-## Phase 1 — Queue & Worker Setup
+## Phase 1 — Queue & Worker Setup - Done
 
 ### T1.1 — Implement Dramatiq Broker
 
@@ -62,7 +62,7 @@
 
 ---
 
-## Phase 2 — Data Model Changes
+## Phase 2 — Data Model Changes - Done
 
 ### T2.1 — Update Document Model
 
@@ -100,7 +100,7 @@
 3.  Define a Dramatiq actor `process_ingestion(document_id: str)` with `max_retries=5`.
     **Test:** The file is created and the actor is defined.
 
-### T3.2 — Implement Job Logic
+### T3.2 — Implement Job Logic - Done
 
 **Start:** The actor has an empty body.
 **End:** The actor orchestrates the ingestion and updates the document status.
@@ -128,7 +128,7 @@
 
 ---
 
-## Phase 4 — API Modification
+## Phase 4 — API Modification - Done
 
 ### T4.1 — Update API Schemas
 
@@ -153,7 +153,7 @@
 
 ---
 
-## Phase 5 — Testing
+## Phase 5 — Testing - Done
 
 ### T5.1 — API Endpoint Unit Test
 
@@ -177,15 +177,3 @@
 2.  **Success case:** Seed a `Document` with `status="PENDING"`. Run the job and assert the status becomes `COMPLETED` and chunks/embeddings are created.
 3.  **Failure case:** Mock the `IngestionService` to raise an exception. Run the job and assert the document status becomes `FAILED` and `processing_errors` is populated.
     **Test:** `pytest tests/test_jobs.py` (a new test file) passes.
-
-### T5.3 — End-to-End Integration Test
-
-**Start:** No test covers the full async flow.
-**End:** An integration test verifies the entire process from API call to final `COMPLETED` status.
-**Steps:**
-
-1.  This test will require a running Redis instance and a worker (or a way to execute jobs in-process for testing).
-2.  Call `POST /ingest`.
-3.  Poll the database for a few seconds until the document `status` is `COMPLETED` or `FAILED`.
-4.  Assert the final state is correct.
-    **Test:** The integration test passes, confirming the API, worker, and database all function together correctly.

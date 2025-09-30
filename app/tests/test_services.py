@@ -55,7 +55,8 @@ class TestIngestionService:
         test_text = "This is a test document for ingestion. It has enough characters."
         payload = IngestRequest(text=test_text, source="test")
 
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         assert doc_id is not None
 
@@ -72,15 +73,17 @@ class TestIngestionService:
         payload = IngestRequest(text=test_text, source="test")
 
         # First creation
-        doc_id_1 = await service.create_document(payload)
-        assert doc_id_1 is not None
+        result1 = await service.create_document(payload)
+        assert result1.document_id is not None
+        assert result1.was_created is True
 
         # Second creation of the same text
-        doc_id_2 = await service.create_document(payload)
-        assert doc_id_2 == doc_id_1
+        result2 = await service.create_document(payload)
+        assert result2.document_id == result1.document_id
+        assert result2.was_created is False
 
         # Verify only one document exists in the database
-        documents = await Document.filter(content_sha256=(await Document.get(id=doc_id_1)).content_sha256)
+        documents = await Document.filter(content_sha256=(await Document.get(id=result1.document_id)).content_sha256)
         assert len(documents) == 1
 
     async def test_create_document_text_too_long(self):
@@ -109,7 +112,8 @@ class TestIngestionService:
         # Create a document first
         test_text = "This is a test document for processing. It has enough characters to be chunked properly."
         payload = IngestRequest(text=test_text, source="test")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
         document = await Document.get(id=doc_id)
 
         # Process the document
@@ -132,7 +136,8 @@ class TestIngestionService:
         # Create a document
         test_text = "This text should not be chunked. It is long enough to pass initial validation."
         payload = IngestRequest(text=test_text, source="test")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
         document = await Document.get(id=doc_id)
 
         # Mock chunker to return empty list
@@ -154,7 +159,8 @@ class TestIngestionService:
             "This should generate at least two chunks based on the chunking configuration."
         )
         payload = IngestRequest(text=test_text, source="test")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
         document = await Document.get(id=doc_id)
 
         # Mock embedder to return wrong number of embeddings (always return just 1)
@@ -180,7 +186,8 @@ class TestQAService:
         # Create and process a sample document
         test_text = "Alice met Bob. They built a Personal Knowledge Base MVP. The project uses FastAPI and LangGraph."
         payload = IngestRequest(text=test_text, source="test-qa")
-        self.doc_id = await self.ingestion_service.create_document(payload)
+        result = await self.ingestion_service.create_document(payload)
+        self.doc_id = result.document_id
         document = await Document.get(id=self.doc_id)
         self.chunk_ids = await self.ingestion_service.process_document(document)
 

@@ -45,7 +45,8 @@ class TestIngestionJob:
         service = IngestionService()
         test_text = "This is a test document for async processing. It has enough content."
         payload = IngestRequest(text=test_text, source="test-job")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         document = await Document.get(id=doc_id)
         assert document.status == DocumentStatus.PENDING
@@ -86,7 +87,8 @@ class TestIngestionJob:
         service = IngestionService()
         test_text = "This document is already completed."
         payload = IngestRequest(text=test_text, source="test-job")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         document = await Document.get(id=doc_id)
         document.status = DocumentStatus.COMPLETED
@@ -114,7 +116,8 @@ class TestIngestionJob:
         service = IngestionService()
         test_text = "This document will fail processing."
         payload = IngestRequest(text=test_text, source="test-job")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         # Set mock to indicate we're on the last retry
         mock_dramatiq_message.options["retries"] = 5
@@ -137,7 +140,8 @@ class TestIngestionJob:
         service = IngestionService()
         test_text = "This document will fail but retry."
         payload = IngestRequest(text=test_text, source="test-job")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         # Set mock to indicate we're NOT on the last retry
         mock_dramatiq_message.options["retries"] = 2
@@ -160,7 +164,8 @@ class TestIngestionJob:
         service = IngestionService()
         test_text = "This document will be manually marked COMPLETED."
         payload = IngestRequest(text=test_text, source="test-job")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         # Set mock to indicate we're on the last retry
         mock_dramatiq_message.options["retries"] = 5
@@ -190,7 +195,8 @@ class TestIngestionJob:
         service = IngestionService()
         test_text = "This document had previous errors."
         payload = IngestRequest(text=test_text, source="test-job")
-        doc_id = await service.create_document(payload)
+        result = await service.create_document(payload)
+        doc_id = result.document_id
 
         document = await Document.get(id=doc_id)
         document.processing_errors = "Previous error message"

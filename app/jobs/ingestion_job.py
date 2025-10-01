@@ -12,6 +12,7 @@ import dramatiq
 from dramatiq.middleware import CurrentMessage
 from tortoise import Tortoise
 
+from app.core import queue  # noqa: F401 - Initialize Dramatiq broker for worker
 from app.core.config import TORTOISE_ORM
 from app.models import Document
 from app.models.document import DocumentStatus

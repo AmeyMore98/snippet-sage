@@ -38,8 +38,8 @@ services:
       dockerfile: Dockerfile
     container_name: snippet-sage-migrations
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: ${DATABASE_URL:-postgres://snippet_sage:snippet_sage@postgres:5432/snippet_sage}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       DSPY_MODEL: ${DSPY_MODEL}
       DSPY_LM_API_KEY: ${DSPY_LM_API_KEY}
     depends_on:
@@ -56,8 +56,8 @@ services:
     ports:
       - "9090:8080"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: postgres://snippet_sage:snippet_sage@postgres:5432/snippet_sage
+      REDIS_URL: redis://redis:6379/0
       DSPY_MODEL: ${DSPY_MODEL}
       DSPY_LM_API_KEY: ${DSPY_LM_API_KEY}
       WORKERS: 4
@@ -74,6 +74,24 @@ services:
       timeout: 10s
       start_period: 40s
       retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: snippet-sage-worker
+    environment:
+      DATABASE_URL: postgres://snippet_sage:snippet_sage@postgres:5432/snippet_sage
+      REDIS_URL: redis://redis:6379/0
+      DSPY_MODEL: ${DSPY_MODEL}
+      DSPY_LM_API_KEY: ${DSPY_LM_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: dramatiq app.jobs.ingestion_job --processes 2 --threads 4
+    restart: unless-stopped
 
 volumes:
   postgres_data:

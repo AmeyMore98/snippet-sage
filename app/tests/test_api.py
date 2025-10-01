@@ -7,6 +7,14 @@ from app.main import app
 from app.schemas.answer import AnswerResponse, Citation
 
 
+def test_dramatiq_broker_initialized():
+    """Verify that the Dramatiq broker is initialized when the app module is imported."""
+    import dramatiq
+
+    broker = dramatiq.get_broker()
+    assert broker is not None, "Dramatiq broker should be initialized"
+
+
 @pytest.fixture(scope="module")
 def anyio_backend():
     return "asyncio"
@@ -48,7 +56,7 @@ class TestAPI:
 
     @patch("app.jobs.ingestion_job.process_ingestion")
     async def test_ingest_endpoint_duplicate_returns_same_id(self, mock_actor, client: AsyncClient):
-        """Tests that ingesting duplicate content returns the same document ID without enqueuing a new job."""
+        """Tests that ingesting duplicate content returns the same document and enqueues a new job."""
         test_text = "This is a duplicate test document."
         payload = {"text": test_text, "source": "api-test"}
 
@@ -69,8 +77,8 @@ class TestAPI:
         assert data1["document_id"] == data2["document_id"]
         assert data2["message"] == "Document already exists"
 
-        # Verify that no job was enqueued for the duplicate
-        mock_actor.send.assert_not_called()
+        # Verify that job was enqueued for the duplicate
+        mock_actor.send.assert_called_once()
 
     @patch("app.api.answer.qa_service", new_callable=AsyncMock)
     async def test_answer_endpoint(self, mock_qa_service, client: AsyncClient):

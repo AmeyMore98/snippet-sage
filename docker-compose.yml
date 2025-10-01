@@ -12,7 +12,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U snippet_sage"]
       interval: 10s
@@ -32,6 +31,22 @@ services:
     volumes:
       - redis_data:/data
 
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: snippet-sage-migrations
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://snippet_sage:snippet_sage@postgres:5432/snippet_sage}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DSPY_MODEL: ${DSPY_MODEL}
+      DSPY_LM_API_KEY: ${DSPY_LM_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: aerich upgrade
+    restart: "no"
+
   app:
     build:
       context: .
@@ -50,6 +65,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

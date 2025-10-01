@@ -7,6 +7,7 @@ from tortoise import Tortoise
 
 from app.api import answer, ingest
 from app.core.config import Settings
+from app.core import queue  # noqa: F401 - Initialize Dramatiq broker
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

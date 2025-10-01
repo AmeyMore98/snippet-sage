@@ -9,6 +9,7 @@ Future queue types can be added.
 
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
+from dramatiq.middleware import AsyncIO
 
 from app.core.config import Settings
 
@@ -19,6 +20,10 @@ settings = Settings()
 # ============================================================================
 # Used for async job processing with automatic retries and failure handling
 dramatiq_broker = RedisBroker(url=settings.REDIS_URL)
+
+# Add AsyncIO middleware to support async actors
+dramatiq_broker.add_middleware(AsyncIO())
+
 dramatiq.set_broker(dramatiq_broker)
 
 

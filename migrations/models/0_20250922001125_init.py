@@ -3,6 +3,13 @@ from tortoise import BaseDBAsyncClient
 
 async def upgrade(db: BaseDBAsyncClient) -> str:
     return """
+        -- Enable operator class for GIN index
+        CREATE EXTENSION IF NOT EXISTS btree_gin;
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+        -- Enable pgvector extension
+        CREATE EXTENSION IF NOT EXISTS vector;
+
         CREATE TABLE IF NOT EXISTS "documents" (
             "id" UUID NOT NULL PRIMARY KEY,
             "source" VARCHAR(255),

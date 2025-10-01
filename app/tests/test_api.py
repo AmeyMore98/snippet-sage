@@ -7,6 +7,14 @@ from app.main import app
 from app.schemas.answer import AnswerResponse, Citation
 
 
+def test_dramatiq_broker_initialized():
+    """Verify that the Dramatiq broker is initialized when the app module is imported."""
+    import dramatiq
+
+    broker = dramatiq.get_broker()
+    assert broker is not None, "Dramatiq broker should be initialized"
+
+
 @pytest.fixture(scope="module")
 def anyio_backend():
     return "asyncio"

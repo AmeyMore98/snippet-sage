@@ -86,7 +86,7 @@ class IngestionService:
 
         This method handles the complete async ingestion workflow: validation,
         normalization, deduplication, document creation, and job enqueueing.
-        If the document is new, it enqueues a background job for processing.
+        A background job is always enqueued for processing, even for duplicate documents.
 
         Args:
             payload: The IngestRequest containing the text and optional metadata.
@@ -103,10 +103,9 @@ class IngestionService:
         # Create the document (handles validation, normalization, and deduplication)
         result = await self.create_document(payload)
 
-        # Enqueue background job only for new documents
-        if result.was_created:
-            process_ingestion.send(str(result.document_id))
-            logger.info(f"Enqueued processing job for document {result.document_id}")
+        # Enqueue background job for all documents
+        process_ingestion.send(str(result.document_id))
+        logger.info(f"Enqueued processing job for document {result.document_id}")
 
         return IngestResult(document_id=result.document_id, was_created=result.was_created)
 

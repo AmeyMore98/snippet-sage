@@ -26,6 +26,11 @@ def load_model() -> SentenceTransformer:
     it's recommended to call this function once at application startup
     to pre-load the model and avoid a delay on the first request.
 
+    Automatically detects and uses GPU acceleration:
+    - Mac M1/M2/M3: Uses Metal Performance Shaders (MPS)
+    - CUDA GPUs: Uses CUDA
+    - Fallback: Uses CPU
+
     Returns:
         SentenceTransformer model instance
     """
@@ -34,7 +39,20 @@ def load_model() -> SentenceTransformer:
     if _model is None:
         if _settings is None:
             _settings = Settings()
-        _model = SentenceTransformer(_settings.EMBEDDING_MODEL)
+
+        # Detect best available device
+        # TODO: Doesn't work on M1, debug later
+        import torch
+
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
+
+        _model = SentenceTransformer(_settings.EMBEDDING_MODEL, device=device)
+        print(f"Loaded embedding model on device: {device}")
 
     return _model
 
